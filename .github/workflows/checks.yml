@@ -1,0 +1,35 @@
+name: Recognition checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check dist/app.js
+      - run: node --test tests/*.test.mjs
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save --package-lock=false playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Generate synthetic video (no private data)
+        run: ffmpeg -f lavfi -i color=c=green:s=512x1108:r=10 -t 4 -c:v libvpx -pix_fmt yuv420p /tmp/chess-synthetic.webm
+      - name: Browser flow with real Stockfish and scripted recognition
+        run: |
+          python3 -m http.server 8765 --directory dist >/tmp/chess-http.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8765/ >/dev/null && break; sleep 1; done
+          node tests/browser-flow.cjs
