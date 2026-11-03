@@ -19,7 +19,7 @@ const fs=require('node:fs/promises');
  const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('atelier-games-v1')||'[]'));
  const startVideo=async()=>{
   if(!await page.locator('#import-dialog').evaluate(e=>e.open))await page.locator('.upload-trigger').click();
-  await page.locator('#file-input').setInputFiles('/tmp/chess-synthetic.mp4');
+  await page.locator('#file-input').setInputFiles('/tmp/chess-synthetic.webm');
   await page.locator('#import-start').click();
   await page.waitForFunction(()=>document.querySelector('#recognition-continue')||document.querySelector('#import-error').textContent);
   assert.equal(await page.locator('#import-error').innerText(),'','video import error');
