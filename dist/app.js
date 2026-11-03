@@ -148,20 +148,39 @@ async function recognizeVideo(file,color){
  return {moves,duration:v.duration,result,recognitionWarning,lastTime,firstGapTime:gap?.firstSeen??null,lastGoodTime:gap?.after??lastTime,recognitionGaps,stableBoardFrames:totalBoard,recoveredCount};
  }finally{worker?.terminate();v.removeAttribute('src');v.load();URL.revokeObjectURL(url)}
 }
-async function reviewRecognition(data){
+async function reviewRecognition(data,file,color){
  const box=$('#recognition-review');box.hidden=false;
- const pgn=new Chess();data.moves.forEach(m=>pgn.move(m.uci));
- box.innerHTML=`<h3>Найдено ${data.moves.length} полуходов</h3><p>Видео просмотрено до ${timeLabel(data.duration)}. Последний найденный ход — ${timeLabel(data.lastTime)}.</p><p>${data.result==='*'?'Конец партии по правилам шахмат не подтверждён: запись может содержать только часть игры. Долгое отсутствие новых ходов само по себе не означает пропуск.':'На последней восстановленной позиции — мат.'}</p>${data.recognitionWarning?`<p role="alert">${esc(data.recognitionWarning)}</p>`:''}<p>Проверьте список перед расчётом Stockfish. Звёздочкой отмечены восстановленные полуходы; их точное время внутри пропуска неизвестно.</p><div class="line-moves" style="max-height:220px;overflow:auto">${data.moves.map((m,i)=>`<span class="tag">${Math.floor(i/2)+1}${i%2?'…':'.'} ${esc(m.san)}${m.recovered?' *':''}</span>`).join(' ')}</div><button id="recognized-pgn" class="secondary" type="button">Скачать найденные ходы · PGN</button><button id="recognition-continue" class="primary" type="button">Разобрать ${data.moves.length} полуходов</button>`;
+ const pgn=new Chess(),positions=[pgn.fen()];data.moves.forEach(m=>{pgn.move(m.uci);positions.push(pgn.fen())});
+ box.innerHTML=`<h3>Найдено ${data.moves.length} полуходов</h3><p>Видео просмотрено до ${timeLabel(data.duration)}. Последний найденный ход — ${timeLabel(data.lastTime)}.</p><p>${data.result==='*'?'Конец партии по правилам шахмат не подтверждён: запись может содержать только часть игры. Долгое отсутствие новых ходов само по себе не означает пропуск.':'На последней восстановленной позиции — мат.'}</p>${data.recognitionWarning?`<p role="alert">${esc(data.recognitionWarning)}</p>`:''}<p>Проверьте список перед расчётом Stockfish. Звёздочкой отмечены восстановленные полуходы; их точное время внутри пропуска неизвестно.</p><div class="recognition-compare"><div><div id="recognition-board" class="board" aria-label="Распознанная позиция"></div><p id="recognition-position" role="status"></p><div class="recognition-controls"><button id="recognition-start" type="button">Начало</button><button id="recognition-prev" type="button" aria-label="Предыдущий распознанный ход">←</button><button id="recognition-next" type="button" aria-label="Следующий распознанный ход">→</button></div></div><div><video id="recognition-video" controls muted playsinline preload="metadata" aria-label="Исходная запись"></video><p class="subtle">Сверьте доску с записью. Выбор хода перемещает видео к моменту распознавания. Для восстановленного хода время приблизительное.</p></div></div><div class="line-moves" style="max-height:220px;overflow:auto">${data.moves.map((m,i)=>`<button type="button" class="tag" data-recognition-move="${i+1}">${Math.floor(i/2)+1}${i%2?'…':'.'} ${esc(m.san)}${m.recovered?' *':''}</button>`).join(' ')}</div><button id="recognized-pgn" class="secondary" type="button">Скачать найденные ходы · PGN</button><button id="recognition-continue" class="primary" type="button">Разобрать ${data.moves.length} полуходов</button>`;
+
+ const video=$('#recognition-video'),videoURL=URL.createObjectURL(file);let position=0;
+ const showPosition=()=>{
+  const board=new Chess(positions[position]),move=data.moves[position-1],flip=color==='black';let html='';
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+   const square='abcdefgh'[flip?7-c:c]+(flip?r+1:8-r),piece=board.get(square),highlight=move&&(move.uci.slice(0,2)===square||move.uci.slice(2,4)===square);
+   html+=`<div class="square ${(r+c)%2?'dark':''} ${highlight?'highlight':''}" data-square="${square}" aria-label="${square}${piece?' '+piece.color+piece.type:''}">${piece?`<img src="pieces/${piece.color}${piece.type}.svg" alt="" draggable="false">`:''}</div>`;
+  }
+  $('#recognition-board').innerHTML=html;
+  $('#recognition-position').textContent=position?`${Math.floor((position-1)/2)+1}${position%2?'.':'…'} ${move.san} · ${position} из ${data.moves.length}${move.recovered?' · восстановлен, проверьте по видео':''}`:'Начальная позиция';
+  $('#recognition-prev').disabled=$('#recognition-start').disabled=position===0;$('#recognition-next').disabled=position===data.moves.length;
+  $$('[data-recognition-move]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.recognitionMove===position)));
+  video.pause();if(video.readyState>=1)video.currentTime=Math.min(move?.time||0,video.duration||data.duration);
+ };
+ video.onloadedmetadata=showPosition;video.src=videoURL;
+ $$('[data-recognition-move]').forEach(b=>b.onclick=()=>{position=+b.dataset.recognitionMove;showPosition()});
+ $('#recognition-start').onclick=()=>{position=0;showPosition()};
+ $('#recognition-prev').onclick=()=>{position=Math.max(0,position-1);showPosition()};
+ $('#recognition-next').onclick=()=>{position=Math.min(data.moves.length,position+1);showPosition()};showPosition();
  $('#recognized-pgn').onclick=()=>download(pgn.pgn(),'recognized-party.pgn','application/x-chess-pgn');
  progress(55,'Распознавание завершено. Проверьте найденные ходы.');
  try{await new Promise((resolve,reject)=>{recognitionDecision=confirmed=>{recognitionDecision=null;confirmed?resolve():reject(new Error('Расчёт отменён. Найденные ходы не добавлены в историю; исходное видео не изменено.'))};$('#recognition-continue').onclick=()=>recognitionDecision?.(true)});checkCancel()}
- finally{recognitionDecision=null;box.hidden=true;box.innerHTML=''}
+ finally{recognitionDecision=null;video.pause();video.removeAttribute('src');video.load();URL.revokeObjectURL(videoURL);box.hidden=true;box.innerHTML=''}
 }
 $('#import-start').onclick=async()=>{
  if(!selectedFile||busy)return;busy=true;cancelled=false;$('#import-start').disabled=true;$('#file-input').disabled=true;$('#color').disabled=true;$('#progress-box').hidden=false;$('#import-error').textContent='';const file=selectedFile,color=$('#color').value;let wake=null;
  try{try{wake=await navigator.wakeLock?.request('screen')}catch{};let data;progress(1,'Подготавливаем файл…');
  if(/\.pgn$/i.test(file.name)){const b=new Chess();try{b.loadPgn(await file.text())}catch{throw new Error('Не удалось прочитать PGN. Проверьте последовательность ходов.')}const history=b.history({verbose:true});if(!history.length)throw new Error('В PGN нет ходов.');if(history.length>500)throw new Error('В первой версии поддерживается до 500 полуходов.');const initial=history[0].before;if(initial!==new Chess().fen())throw new Error('Пока поддерживается PGN со стандартной начальной позиции.');data={moves:history.map(m=>({uci:m.from+m.to+(m.promotion||''),san:m.san})),result:b.header().Result||'*'}}else data=await recognizeVideo(file,color);
- checkCancel();if(Number.isFinite(data.duration))await reviewRecognition(data);const b=new Chess(),positions=[b.fen()];let opening=null;for(const m of data.moves){b.move(m.uci);positions.push(b.fen());opening=openings[b.fen().split(' ').slice(0,3).join(' ')]||opening}
+ checkCancel();if(Number.isFinite(data.duration))await reviewRecognition(data,file,color);const b=new Chess(),positions=[b.fen()];let opening=null;for(const m of data.moves){b.move(m.uci);positions.push(b.fen());opening=openings[b.fen().split(' ').slice(0,3).join(' ')]||opening}
  if(Number.isFinite(data.duration))progress(55,`Видео распознано: ${data.moves.length} полуходов · последний ход ${timeLabel(data.lastTime)} из ${timeLabel(data.duration)}${data.recognitionWarning?' · есть фрагмент для проверки':''}. Далее оценка Stockfish.`);
  const e=await getEngine(),evals=[];for(let i=0;i<positions.length;i++){checkCancel();progress(56+43*i/positions.length,`Stockfish: позиция ${i+1} из ${positions.length}. Держите приложение открытым.`);evals.push(await e.analyze(positions[i],1000))}
  checkCancel();
