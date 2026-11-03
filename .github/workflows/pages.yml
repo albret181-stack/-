@@ -28,7 +28,7 @@ jobs:
           build="${GITHUB_SHA::7}"
           version="$(sed -n "s/.*VERSION='\\([^']*\\)'.*/\\1/p" dist/app.js)"
           sed -i "s/BUILD_ID='source'/BUILD_ID='${build}'/" dist/app.js
-          sed -i "s/atelier-v0.2.0/atelier-v0.2.0-${build}/" dist/sw.js
+          sed -i "s/atelier-v[^\\']*/atelier-v${version}-${build}/" dist/sw.js
           printf '{"version":"%s","build":"%s","githubConnected":true}' "$version" "$build" > dist/version.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

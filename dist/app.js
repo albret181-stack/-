@@ -1,5 +1,5 @@
 import {Chess} from './chess.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.2.0',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.3.0',BUILD_ID='source';
 let games=[],game,selected=0,tab='errors',lineMode='best',lineIndex=0,step=0,flipped=false,playing=null,currentLine=[],baseFen='',actualIndex=0,openings={},busy=false,cancelled=false,selectedFile=null,engine=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(s){$('#toast').textContent=s;$('#toast').classList.add('show');setTimeout(()=>$('#toast').classList.remove('show'),4000)}
@@ -36,21 +36,21 @@ function renderErrors(){
  const ids=errors(),blunders=ids.filter(i=>loss(i)>=200).length,mistakes=ids.filter(i=>loss(i)>=100&&loss(i)<200).length,inacc=ids.length-blunders-mistakes;
  const before=game.evals[selected]?.[0],after=game.evals[selected+1]?.[0],best=before?.line?.[0]?.san,played=game.moves[selected]?.san;
  const reply=after?.line?.slice(0,2).map(m=>m.san).join(' ');
- $('#tab-content').innerHTML=`<div class="summary"><div><strong>${blunders}</strong><small>грубых ошибок</small></div><div><strong>${mistakes}</strong><small>ошибок</small></div><div><strong>${inacc}</strong><small>неточностей</small></div></div><div class="error-list">${ids.map(i=>`<button class="error-chip ${i===selected?'active':''}" data-error="${i}">${moveLabel(i)} ${loss(i)>=200?'??':loss(i)>=100?'?':'?!'}</button>`).join('')||'<span class="empty">Заметных потерь оценки в ваших ходах не найдено.</span>'}</div><article class="insight-card"><div class="insight-kicker"><span>ХОД ${Math.floor(selected/2)+1} · ${selected%2?'ЧЁРНЫЕ':'БЕЛЫЕ'}</span><span class="classification">${severity(selected)}</span></div><h3>${best&&best!==played?`Лучше было ${esc(best)}`:`Ваш ход ${esc(played)}`}</h3><div class="score-change"><b>${score(before)}</b><span>→</span><b>${score(after)}</b><small>оценка за белых</small></div><p>${loss(selected)>=60?`После <b>${esc(played)}</b> оценка ухудшилась для ${selected%2?'чёрных':'белых'}. ${reply?`Сильное продолжение соперника: <b>${esc(reply)}</b>.`:''}`:'Этот ход не привёл к заметному ухудшению оценки при текущем расчёте.'} ${best&&best!==played?'Сравните сыгранное продолжение с вариантом движка.':''}</p><p>${esc(tacticalNote(selected))}</p><div class="line-switch"><button data-line="best" class="${lineMode==='best'?'active':''}">Лучший вариант</button><button data-line="punish" class="${lineMode==='punish'?'active':''}">Ответ на ошибку</button></div><p class="subtle">Это расчётный вариант вместо сыгранного продолжения. Ходы вашей партии можно открыть кнопкой ниже.</p><div id="line-moves" class="line-moves"></div><p id="line-note" class="subtle"></p>${(game.evals[selected]?.length||0)>1&&lineMode==='best'?`<button id="alternative" class="text-btn">${lineIndex?'Вернуть основной вариант':'Другой кандидат на первый ход'} ↗</button>`:''}<button id="deeper" class="secondary">Углубить расчёт этой позиции</button><button id="return-game" class="secondary return-game">Вернуться к моей партии · ход ${Math.floor(selected/2)+1}</button><p class="subtle" style="margin:10px 0 0">Продолжение учитывает ответы соперника. Оценка предварительная; это не гарантия результата партии.</p></article>`;
- $$('[data-error]').forEach(b=>b.onclick=()=>{stopPlay();selected=+b.dataset.error;step=0;lineIndex=0;render()});
+ $('#tab-content').innerHTML=`<div class="summary"><div><strong>${blunders}</strong><small>грубых ошибок</small></div><div><strong>${mistakes}</strong><small>ошибок</small></div><div><strong>${inacc}</strong><small>неточностей</small></div></div><div class="error-list">${ids.map(i=>`<button class="error-chip ${i===selected?'active':''}" data-error="${i}">${moveLabel(i)} ${loss(i)>=200?'??':loss(i)>=100?'?':'?!'}</button>`).join('')||'<span class="empty">Заметных потерь оценки в ваших ходах не найдено.</span>'}</div><article class="insight-card"><div class="insight-kicker"><span>ХОД ${Math.floor(selected/2)+1} · ${selected%2?'ЧЁРНЫЕ':'БЕЛЫЕ'}</span><span class="classification">${severity(selected)}</span></div><h3>${best&&best!==played?`Лучше было ${esc(best)}`:`Ваш ход ${esc(played)}`}</h3><div class="score-change"><b>${score(before)}</b><span>→</span><b>${score(after)}</b><small>оценка за белых</small></div><p>${loss(selected)>=60?`После <b>${esc(played)}</b> оценка ухудшилась для ${selected%2?'чёрных':'белых'}. ${reply?`Сильное продолжение соперника: <b>${esc(reply)}</b>.`:''}`:'Этот ход не привёл к заметному ухудшению оценки при текущем расчёте.'} ${best&&best!==played?'Сравните сыгранное продолжение с вариантом движка.':''}</p><p>${esc(tacticalNote(selected))}</p><div class="line-switch"><button data-line="best" class="${lineMode==='best'?'active':''}">Лучше сыграть</button><button data-line="actual" class="${lineMode==='actual'?'active':''}">Как было сыграно</button><button data-line="punish" class="${lineMode==='punish'?'active':''}">Ответ соперника</button></div><p class="subtle">${lineMode==='best'?'Альтернатива движка начинается перед сыгранным ходом.':lineMode==='actual'?'Здесь показаны фактические ходы вашей партии.':'Здесь показан лучший ответ соперника после сыгранного хода.'}</p><div id="line-moves" class="line-moves"></div><p id="line-note" class="subtle"></p>${(game.evals[selected]?.length||0)>1&&lineMode==='best'?`<button id="alternative" class="text-btn">${lineIndex?'Вернуть основной вариант':'Другой кандидат на первый ход'} ↗</button>`:''}${lineMode!=='actual'?'<button id="deeper" class="secondary">Углубить расчёт этой позиции</button>':''}<button id="return-game" class="secondary return-game">Вернуться к моей партии · ход ${Math.floor(selected/2)+1}</button><p class="subtle" style="margin:10px 0 0">Продолжение учитывает ответы соперника. Оценка предварительная; это не гарантия результата партии.</p></article>`;
+ $$('[data-error]').forEach(b=>b.onclick=()=>{stopPlay();selected=+b.dataset.error;actualIndex=selected+1;step=0;lineIndex=0;render();$('#tab-content').scrollIntoView({behavior:'smooth',block:'start'})});
  $$('[data-line]').forEach(b=>b.onclick=()=>{stopPlay();lineMode=b.dataset.line;step=0;lineIndex=0;render()});
  if($('#alternative'))$('#alternative').onclick=()=>{lineIndex=lineIndex?0:1;step=0;render()};
  $('#deeper').onclick=deeper;
- $('#return-game').onclick=()=>{stopPlay();tab='moves';actualIndex=selected+1;step=0;render()};
+ $('#return-game').onclick=()=>{stopPlay();tab='moves';actualIndex=selected+1;step=0;render();$('#move-detail').scrollIntoView({behavior:'smooth',block:'center'})};
 }
 function renderMoves(){
  const i=Math.max(0,Math.min(game.moves.length-1,actualIndex?actualIndex-1:selected)),played=game.moves[i],best=game.evals[i]?.[0]?.line?.[0]?.san,role=mine(i)?'Ваш ход':'Ход соперника';
  let html='<p class="subtle">Это ходы вашей партии. У каждого хода есть оценка; выберите ход, чтобы увидеть разбор и позицию на доске.</p><div class="move-list">';
  for(let j=0;j<game.moves.length;j+=2)html+=`<div class="move-row"><span>${j/2+1}.</span>${[j,j+1].map(k=>game.moves[k]?`<button data-move="${k}" class="${loss(k)>=60?'error ':''}${actualIndex===k+1?'active':''}"><span>${esc(game.moves[k].san)}</span><small class="move-grade ${loss(k)>=60?'weak':''}">${severity(k)}</small></button>`:'<span></span>').join('')}</div>`;
  const correction=loss(i)>=60&&best&&best!==played.san?`<p>Вместо <b>${esc(played.san)}</b> движок предлагает <b>${esc(best)}</b>. ${esc(tacticalNote(i))}</p><button id="compare-move" class="secondary">Посмотреть исправление и продолжение</button>`:`<p>${loss(i)<20?'Ход сохраняет или улучшает оценку позиции.':loss(i)<60?'Ход в целом сохраняет позицию.':'Явная потеря оценки в этом расчёте не найдена.'} Можно изучить продолжение движка отдельно.</p><button id="compare-move" class="secondary">Показать варианты после этого хода</button>`;
- html+=`</div><article class="move-detail"><div class="insight-kicker"><span>${role.toUpperCase()} · ХОД ${Math.floor(i/2)+1}</span><span class="classification">${severity(i)}</span></div><h3>${esc(played.san)} <small>сыграно в партии</small></h3><div class="score-change"><b>${score(game.evals[i]?.[0])}</b><span>→</span><b>${score(game.evals[i+1]?.[0])}</b><small>оценка за белых</small></div>${correction}</article>`;
+ html+=`</div><article id="move-detail" class="move-detail"><div class="insight-kicker"><span>${role.toUpperCase()} · ХОД ${Math.floor(i/2)+1}</span><span class="classification">${severity(i)}</span></div><h3>${esc(played.san)} <small>сыграно в партии</small></h3><div class="score-change"><b>${score(game.evals[i]?.[0])}</b><span>→</span><b>${score(game.evals[i+1]?.[0])}</b><small>оценка за белых</small></div>${correction}</article>`;
  $('#tab-content').innerHTML=html;
- $$('[data-move]').forEach(b=>b.onclick=()=>{actualIndex=+b.dataset.move+1;selected=actualIndex-1;step=0;render()});
+ $$('[data-move]').forEach(b=>b.onclick=()=>{actualIndex=+b.dataset.move+1;selected=actualIndex-1;step=0;render();$('#move-detail').scrollIntoView({behavior:'smooth',block:'center'})});
  $('#compare-move').onclick=()=>{stopPlay();selected=i;tab='errors';lineMode='best';lineIndex=0;step=0;render()}
 }
 function renderOpening(){
@@ -59,8 +59,21 @@ function renderOpening(){
 }
 function prepareLine(){
  if(tab==='moves'||tab==='opening'){baseFen=game.positions[actualIndex];currentLine=[];return}
- const pos=lineMode==='best'?selected:selected+1;baseFen=game.positions[pos];currentLine=game.evals[pos]?.[lineIndex]?.line||[];step=Math.min(step,currentLine.length);
- const box=$('#line-moves');if(box){box.innerHTML=`<button data-step="0" class="${step===0?'active':''}">Начало</button>`+currentLine.map((m,i)=>`<button data-step="${i+1}" class="${step===i+1?'active':''}">${Math.floor((pos+i)/2)+1}${(pos+i)%2?'…':'.'} ${esc(m.san)}</button>`).join('');$$('[data-step]').forEach(b=>b.onclick=()=>{stopPlay();step=+b.dataset.step;render()});$('#line-note').textContent=`${currentLine.length} полуходов в рассчитанной линии · глубина ${game.evals[pos]?.[lineIndex]?.depth||'—'}. До 10 полных ходов, если движок выдал такую линию.`}
+ const pos=lineMode==='best'?selected:lineMode==='punish'?selected+1:selected;
+ baseFen=game.positions[pos];
+ if(lineMode==='actual'){
+  const b=new Chess(baseFen);currentLine=[];
+  for(const move of game.moves.slice(selected,selected+20)){
+   try{const played=b.move(move.uci);currentLine.push({uci:move.uci,san:played?.san||move.san,fen:b.fen()})}catch{break}
+  }
+ }else currentLine=game.evals[pos]?.[lineIndex]?.line||[];
+ step=Math.min(step,currentLine.length);
+ const box=$('#line-moves');if(box){
+  const label=(m,i)=>lineMode==='actual'?`${Math.floor((selected+i)/2)+1}${(selected+i)%2?'…':'.'} ${esc(m.san)}`:`${Math.floor((pos+i)/2)+1}${(pos+i)%2?'…':'.'} ${esc(m.san)}`;
+  box.innerHTML=`<button data-step="0" class="${step===0?'active':''}">Начало</button>`+currentLine.map((m,i)=>`<button data-step="${i+1}" class="${step===i+1?'active':''}">${label(m,i)}</button>`).join('');
+  $$('[data-step]').forEach(b=>b.onclick=()=>{stopPlay();step=+b.dataset.step;render()});
+  $('#line-note').textContent=lineMode==='actual'?`Ходы именно из вашей партии · ${currentLine.length} полуходов. Здесь ничего не заменено вариантом движка.`:`${currentLine.length} полуходов в рассчитанной линии · глубина ${game.evals[pos]?.[lineIndex]?.depth||'—'}. До 10 полных ходов, если движок выдал такую линию.`;
+ }
 }
 function renderBoard(){
  const fen=step&&currentLine[step-1]?currentLine[step-1].fen:baseFen,b=new Chess(fen),lastMove=step?currentLine[step-1]?.uci:tab==='moves'&&actualIndex?game.moves[actualIndex-1]?.uci:null;
@@ -70,8 +83,8 @@ function renderBoard(){
  }$('#board').innerHTML=html;
  $('#top-player').textContent=flipped?'Белые':'Чёрные';$('#bottom-player').textContent=flipped?'Чёрные':'Белые';
  $('#bottom-player').textContent+=(flipped===(game.color==='black'))?' · вы':' · соперник';$('#top-player').textContent+=(flipped===(game.color==='black'))?' · соперник':' · вы';
- const pos=tab==='errors'?(lineMode==='best'?selected:selected+1):actualIndex;$('#eval-label').textContent=score(game.evals[pos]?.[lineIndex]||game.evals[pos]?.[0]);
- $('#position-label').textContent=tab==='errors'?(step?`Вариант · ${step} / ${currentLine.length} полуходов`:`${lineMode==='best'?'Перед':'После'} ${moveLabel(selected)}`):actualIndex?`Партия · после ${moveLabel(actualIndex-1)}`:'Начальная позиция';
+ const pos=tab==='errors'?(lineMode==='best'?selected:lineMode==='punish'?selected+1:selected+step):actualIndex;$('#eval-label').textContent=score(game.evals[pos]?.[lineIndex]||game.evals[pos]?.[0]);
+ $('#position-label').textContent=tab==='errors'?(lineMode==='actual'?(step?`Партия · после ${moveLabel(selected+step-1)}`:`Перед сыгранным ${moveLabel(selected)}`):step?`Вариант · ${step} / ${currentLine.length} полуходов`:`${lineMode==='best'?'Перед':'После'} ${moveLabel(selected)}`):actualIndex?`Партия · после ${moveLabel(actualIndex-1)}`:'Начальная позиция';
  const next=currentLine[step]?.uci;$('#arrow').style.display=next?'':'none';if(next){const xy=s=>{let f='abcdefgh'.indexOf(s[0]),r=+s[1]-1;return[(flipped?7-f:f)*100+50,(flipped?r:7-r)*100+50]};const a=xy(next.slice(0,2)),z=xy(next.slice(2,4));['x1','y1','x2','y2'].forEach((k,i)=>$('#arrow').setAttribute(k,[...a,...z][i]))}
  $('#prev').disabled=tab==='errors'?step===0:actualIndex===0;$('#first').disabled=$('#prev').disabled;$('#next').disabled=tab==='errors'?step>=currentLine.length:actualIndex>=game.moves.length;$('#last').disabled=$('#next').disabled;
  $('#play').textContent=playing?'Ⅱ':'▶';
