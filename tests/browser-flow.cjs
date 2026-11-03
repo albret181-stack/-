@@ -21,6 +21,8 @@ const fs=require('node:fs/promises');
   if(!await page.locator('#import-dialog').evaluate(e=>e.open))await page.locator('.upload-trigger').click();
   await page.locator('#file-input').setInputFiles('/tmp/chess-synthetic.mp4');
   await page.locator('#import-start').click();
+  await page.waitForFunction(()=>document.querySelector('#recognition-continue')||document.querySelector('#import-error').textContent);
+  assert.equal(await page.locator('#import-error').innerText(),'','video import error');
   await page.locator('#recognition-continue').waitFor();
   assert.equal(await page.locator('#recognition-review .tag').count(),3);
   assert.match(await page.locator('#recognition-review').innerText(),/Восстановлено 2/);
