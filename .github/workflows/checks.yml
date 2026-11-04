@@ -27,7 +27,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Generate synthetic video (no private data)
-        run: ffmpeg -f lavfi -i color=c=green:s=512x1108:r=10 -t 4 -c:v libvpx -pix_fmt yuv420p /tmp/chess-synthetic.webm
+        run: |
+          python3 tests/generate-fixture.py
+          ffmpeg -loop 1 -i /tmp/chess-synthetic.png -r 10 -t 4 -c:v libvpx -pix_fmt yuv420p /tmp/chess-synthetic.webm
       - name: Browser flow with real Stockfish and scripted recognition
         run: |
           python3 -m http.server 8765 --directory dist >/tmp/chess-http.log 2>&1 &
