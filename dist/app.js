@@ -1,7 +1,7 @@
 import {Chess} from './chess.js';
 import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {VideoSequence} from './video-sequence.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.3.3',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.3.4',BUILD_ID='source';
 let games=[],game,selected=0,tab='errors',lineMode='best',lineIndex=0,step=0,flipped=false,playing=null,currentLine=[],baseFen='',actualIndex=0,openings={},busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(s){$('#toast').textContent=s;$('#toast').classList.add('show');setTimeout(()=>$('#toast').classList.remove('show'),4000)}
@@ -221,4 +221,4 @@ $('#import-start').onclick=async()=>{
 };
 function renderEmpty(){$('#game-title').textContent='Добавьте партию, чтобы начать';$('#game-label').textContent='РАЗБОР ПАРТИИ';$('#opening').textContent='Загрузите PGN или запись экрана';$('#fragment').textContent='Партии хранятся на этом устройстве';$('#board').innerHTML='';$('#chart').innerHTML='';$('#tab-content').innerHTML='<article class="move-detail"><h3>Начните с вашей партии</h3><p>Нажмите «Добавить партию», чтобы загрузить PGN или запись экрана. Затем здесь появится ваша партия с оценкой каждого хода.</p></article>';$('#games').innerHTML='';$('#count').textContent='0';$('#eval-label').textContent='—';$('#position-label').textContent='Здесь появится доска с вашей партией';$('#first').disabled=$('#prev').disabled=$('#next').disabled=$('#last').disabled=true}
 async function boot(){try{const [samples,ops]=await Promise.all([fetch('./samples.json').then(r=>r.json()),fetch('./openings.json').then(r=>r.json())]);openings=ops;let saved=[];try{saved=JSON.parse(localStorage.getItem('atelier-games-v1')||'[]').filter(g=>g.moves?.length&&g.positions?.length&&g.evals?.length)}catch{}games=[...saved,...samples];if(games.length)selectGame(games[0]);else renderEmpty()}catch(e){$('#game-title').textContent='Не удалось загрузить партии';$('#tab-content').innerHTML='<p>Проверьте интернет и обновите страницу.</p>';console.error(e)}}
-boot();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js?v=0.3.3').catch(()=>{});
+boot();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js?v=0.3.4').catch(()=>{});
