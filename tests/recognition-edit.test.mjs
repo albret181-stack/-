@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {editRecognition} from '../dist/recognition-edit.js';
+import {editRecognition,replaceRecognizedMove} from '../dist/recognition-edit.js';
 const original={moves:[{uci:'e2e4',san:'e4',time:1,recovered:true},{uci:'e7e5',san:'e5',time:1,recovered:true},{uci:'g1f3',san:'Nf3',time:2}],duration:4,result:'*',recoveredCount:2,recognitionWarning:'Check gap'};
 test('editing preserves only the unchanged prefix timestamps and never mutates source',()=>{
  const snapshot=structuredClone(original),out=editRecognition(original,'1. e4 e5 2. Nc3 *');
@@ -18,4 +18,15 @@ test('same moves restore original diagnostics; shorter game is marked edited',()
 test('result comes from board, not an arbitrary PGN result header',()=>{
  assert.equal(editRecognition(original,'1. d4 1-0').result,'*');
  assert.equal(editRecognition(original,'1. f3 e5 2. g4 Qh4# *').result,'0-1');
+});
+
+test('board correction preserves legal continuation and source',()=>{
+ const before=structuredClone(original),p=replaceRecognizedMove(original,original,0,'d2d4');
+ assert.equal(p.dropped,0);assert.deepEqual(p.data.moves.map(m=>m.uci),['d2d4','e7e5','g1f3']);assert.deepEqual(original,before);
+});
+test('incompatible tail is counted explicitly, not silently retained',()=>{
+ const p=replaceRecognizedMove(original,original,0,'g1f3');assert.equal(p.dropped,1);assert.equal(p.data.moves.length,2);assert.equal(p.data.moves[0].time,undefined);
+});
+test('illegal board correction leaves original intact',()=>{
+ const before=structuredClone(original);assert.throws(()=>replaceRecognizedMove(original,original,0,'e2e5'));assert.throws(()=>replaceRecognizedMove(original,original,3,'e2e4'));assert.deepEqual(original,before);
 });

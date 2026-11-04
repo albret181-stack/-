@@ -20,3 +20,15 @@ export function editRecognition(original, text) {
   result:board.isCheckmate()?(board.turn()==='w'?'0-1':'1-0'):'*',
   recognitionWarning:'Список ходов изменён вручную. Сверьте продолжение и полноту партии с видео. '+(original.recognitionWarning||'')};
 }
+
+// Build a proposal; caller must explicitly confirm any removed continuation.
+export function replaceRecognizedMove(original,current,index,uci) {
+ if(!Number.isInteger(index)||index<0||index>=current.moves.length)throw new Error('Выберите ход для исправления.');
+ const board=new Chess();
+ for(const move of current.moves.slice(0,index))board.move(move.uci);
+ board.move(uci);const replacementFen=board.fen();let end=index+1;
+ for(;end<current.moves.length;end++){
+  try{board.move(current.moves[end].uci)}catch{break}
+ }
+ return {data:editRecognition(original,board.pgn()),dropped:current.moves.length-end,replacementFen};
+}
