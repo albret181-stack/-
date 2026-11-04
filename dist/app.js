@@ -1,5 +1,5 @@
 import {Chess} from './chess.js';
-import {editRecognition} from './recognition-edit.js';
+import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {VideoSequence} from './video-sequence.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.3.3',BUILD_ID='source';
 let games=[],game,selected=0,tab='errors',lineMode='best',lineIndex=0,step=0,flipped=false,playing=null,currentLine=[],baseFen='',actualIndex=0,openings={},busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null;
@@ -153,28 +153,53 @@ async function reviewRecognition(data,file,color,original=structuredClone(data))
  let restart=false;
  const box=$('#recognition-review');box.hidden=false;
  const pgn=new Chess(),positions=[pgn.fen()];data.moves.forEach(m=>{pgn.move(m.uci);positions.push(pgn.fen())});
- box.innerHTML=`<h3>${data.manuallyEdited?'После исправления:':'Найдено'} ${data.moves.length} полуходов</h3><p>Видео просмотрено до ${timeLabel(data.duration)}. ${data.manuallyEdited?'Время изменённых ходов не определено.':`Последний найденный ход — ${timeLabel(data.lastTime)}.`}</p><p>${data.result==='*'?'Конец партии по правилам шахмат не подтверждён: запись может содержать только часть игры. Долгое отсутствие новых ходов само по себе не означает пропуск.':'На последней восстановленной позиции — мат.'}</p>${data.recognitionWarning?`<p role="alert">${esc(data.recognitionWarning)}</p>`:''}<p>Проверьте список перед расчётом Stockfish. Звёздочкой отмечены восстановленные полуходы; их точное время внутри пропуска неизвестно.</p><div class="recognition-compare"><div><div id="recognition-board" class="board" aria-label="Распознанная позиция"></div><p id="recognition-position" role="status"></p><div class="recognition-controls"><button id="recognition-start" type="button">Начало</button><button id="recognition-prev" type="button" aria-label="Предыдущий распознанный ход">←</button><button id="recognition-next" type="button" aria-label="Следующий распознанный ход">→</button></div></div><div><video id="recognition-video" controls muted playsinline preload="metadata" aria-label="Исходная запись"></video><p class="subtle">Сверьте доску с записью. Выбор хода перемещает видео к моменту распознавания. Для восстановленного хода время приблизительное.</p></div></div><div class="line-moves" style="max-height:220px;overflow:auto">${data.moves.map((m,i)=>`<button type="button" class="tag" data-recognition-move="${i+1}">${Math.floor(i/2)+1}${i%2?'…':'.'} ${esc(m.san)}${m.recovered?' *':''}</button>`).join(' ')}</div><details id="recognition-editor"><summary>Исправить список ходов</summary><label class="field" for="recognition-pgn">Ходы партии в шахматной записи (PGN)</label><textarea id="recognition-pgn" rows="6" spellcheck="false"></textarea><p class="subtle">Например: 1. e4 e5 2. Nf3. Исправьте ход и при необходимости последующее продолжение. Изменения применятся только после проверки.</p><p id="recognition-edit-error" role="alert"></p><button id="recognition-apply" class="secondary" type="button">Проверить и применить</button><button id="recognition-reset" class="text-btn" type="button">Вернуть исходное распознавание</button></details><button id="recognized-pgn" class="secondary" type="button">Скачать найденные ходы · PGN</button><button id="recognition-continue" class="primary" type="button">Разобрать ${data.moves.length} полуходов</button>`;
+ box.innerHTML=`<h3>${data.manuallyEdited?'После исправления:':'Найдено'} ${data.moves.length} полуходов</h3><p>Видео просмотрено до ${timeLabel(data.duration)}. ${data.manuallyEdited?'Время изменённых ходов не определено.':`Последний найденный ход — ${timeLabel(data.lastTime)}.`}</p><p>${data.result==='*'?'Конец партии по правилам шахмат не подтверждён: запись может содержать только часть игры. Долгое отсутствие новых ходов само по себе не означает пропуск.':'На последней восстановленной позиции — мат.'}</p>${data.recognitionWarning?`<p role="alert">${esc(data.recognitionWarning)}</p>`:''}<p>Проверьте список перед расчётом Stockfish. Звёздочкой отмечены восстановленные полуходы; их точное время внутри пропуска неизвестно.</p><div class="recognition-compare"><div><div id="recognition-board" class="board" aria-label="Распознанная позиция"></div><p id="recognition-position" role="status"></p><button id="recognition-board-edit" class="secondary" type="button">Исправить этот ход на доске</button><div id="recognition-board-editor" hidden><p id="board-edit-status" role="status"></p><div id="board-promotion"></div><button id="board-edit-apply" class="secondary" type="button" disabled>Применить исправление</button><button id="board-edit-cancel" class="text-btn" type="button">Отменить исправление</button></div><div class="recognition-controls"><button id="recognition-start" type="button">Начало</button><button id="recognition-prev" type="button" aria-label="Предыдущий распознанный ход">←</button><button id="recognition-next" type="button" aria-label="Следующий распознанный ход">→</button></div></div><div><video id="recognition-video" controls muted playsinline preload="metadata" aria-label="Исходная запись"></video><p class="subtle">Сверьте доску с записью. Выбор хода перемещает видео к моменту распознавания. Для восстановленного хода время приблизительное.</p></div></div><div class="line-moves" style="max-height:220px;overflow:auto">${data.moves.map((m,i)=>`<button type="button" class="tag" data-recognition-move="${i+1}">${Math.floor(i/2)+1}${i%2?'…':'.'} ${esc(m.san)}${m.recovered?' *':''}</button>`).join(' ')}</div><details id="recognition-editor"><summary>Исправить список ходов</summary><label class="field" for="recognition-pgn">Ходы партии в шахматной записи (PGN)</label><textarea id="recognition-pgn" rows="6" spellcheck="false"></textarea><p class="subtle">Например: 1. e4 e5 2. Nf3. Исправьте ход и при необходимости последующее продолжение. Изменения применятся только после проверки.</p><p id="recognition-edit-error" role="alert"></p><button id="recognition-apply" class="secondary" type="button">Проверить и применить</button><button id="recognition-reset" class="text-btn" type="button">Вернуть исходное распознавание</button></details><button id="recognized-pgn" class="secondary" type="button">Скачать найденные ходы · PGN</button><button id="recognition-continue" class="primary" type="button">Разобрать ${data.moves.length} полуходов</button>`;
 
- const video=$('#recognition-video'),videoURL=URL.createObjectURL(file);let position=0;
+ const video=$('#recognition-video'),videoURL=URL.createObjectURL(file);let position=0,boardEditing=false,fromSquare=null,proposal=null;
  const showPosition=()=>{
-  const board=new Chess(positions[position]),move=data.moves[position-1],flip=color==='black';let html='';
+  const board=new Chess(boardEditing?(proposal?.replacementFen||positions[position-1]):positions[position]),move=data.moves[position-1],flip=color==='black';let html='';
   for(let r=0;r<8;r++)for(let c=0;c<8;c++){
    const square='abcdefgh'[flip?7-c:c]+(flip?r+1:8-r),piece=board.get(square),highlight=move&&(move.uci.slice(0,2)===square||move.uci.slice(2,4)===square);
    html+=`<div class="square ${(r+c)%2?'dark':''} ${highlight?'highlight':''}" data-square="${square}" aria-label="${square}${piece?' '+piece.color+piece.type:''}">${piece?`<img src="pieces/${piece.color}${piece.type}.svg" alt="" draggable="false">`:''}</div>`;
   }
   $('#recognition-board').innerHTML=html;
   $('#recognition-position').textContent=position?`${Math.floor((position-1)/2)+1}${position%2?'.':'…'} ${move.san} · ${position} из ${data.moves.length}${move.manualEdited?' · изменён вручную, время неизвестно':move.recovered?' · восстановлен, проверьте по видео':''}`:'Начальная позиция';
-  $('#recognition-prev').disabled=$('#recognition-start').disabled=position===0;$('#recognition-next').disabled=position===data.moves.length;
-  $$('[data-recognition-move]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.recognitionMove===position)));
+  $('#recognition-prev').disabled=$('#recognition-start').disabled=boardEditing||position===0;$('#recognition-next').disabled=boardEditing||position===data.moves.length;$('#recognition-board-edit').disabled=boardEditing||position===0||$('#recognition-continue').disabled;
+  $$('[data-recognition-move]').forEach(b=>{b.disabled=boardEditing;b.setAttribute('aria-pressed',String(+b.dataset.recognitionMove===position))});
+  if(boardEditing){const legal=new Chess(positions[position-1]).moves({verbose:true});$$('#recognition-board .square').forEach(cell=>{const sq=cell.dataset.square;cell.setAttribute('role','button');cell.tabIndex=0;cell.classList.toggle('edit-selected',sq===fromSquare);cell.classList.toggle('edit-target',!!fromSquare&&legal.some(m=>m.from===fromSquare&&m.to===sq));cell.onclick=()=>chooseSquare(sq);cell.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();chooseSquare(sq)}}})}
   video.pause();if(video.readyState>=1&&(!move||Number.isFinite(move.time)))video.currentTime=Math.min(move?.time||0,video.duration||data.duration);
  };
+
+ const lockEditor=locked=>{
+  $('#recognition-continue').disabled=$('#recognized-pgn').disabled=locked;
+  $('#recognition-pgn').disabled=$('#recognition-apply').disabled=locked;
+  $('#recognition-reset').disabled=locked||!data.manuallyEdited;
+  $('#recognition-board-editor').hidden=!locked;
+ };
+ const propose=move=>{
+  proposal=replaceRecognizedMove(original,data,position-1,move.from+move.to+(move.promotion||''));
+  $('#board-edit-status').textContent=`Новый ход: ${move.san}. ${proposal.dropped?`Следующие ${proposal.dropped} полуходов не подходят и будут убраны. Сверьте оставшуюся партию с видео.`:'Продолжение остаётся легальным; сверьте его с записью.'}`;
+  $('#board-edit-apply').textContent=proposal.dropped?`Применить и убрать ${proposal.dropped} полуходов`:'Применить исправление';
+  $('#board-edit-apply').disabled=false;$('#board-promotion').innerHTML='';showPosition();
+ };
+ const chooseSquare=square=>{
+  if(!boardEditing||proposal)return;
+  const board=new Chess(positions[position-1]),legal=board.moves({verbose:true}),targets=legal.filter(m=>m.from===fromSquare&&m.to===square);
+  if(targets.length>1){$('#board-edit-status').textContent='Выберите фигуру для превращения пешки.';$('#board-promotion').innerHTML=targets.map(m=>`<button type="button" data-promotion="${m.promotion}">${{q:'Ферзь',r:'Ладья',b:'Слон',n:'Конь'}[m.promotion]}</button>`).join('');$$('[data-promotion]').forEach(b=>b.onclick=()=>propose(targets.find(m=>m.promotion===b.dataset.promotion)));return}
+  if(targets.length===1){propose(targets[0]);return}
+  fromSquare=legal.some(m=>m.from===square)?square:null;$('#board-promotion').innerHTML='';
+  $('#board-edit-status').textContent=fromSquare?'Выберите подсвеченную клетку.':'Выберите фигуру стороны, которая ходит.';showPosition();
+ };
+ $('#recognition-board-edit').onclick=()=>{if(!position)return;boardEditing=true;fromSquare=null;proposal=null;lockEditor(true);$('#board-edit-apply').disabled=true;$('#board-edit-status').textContent='Позиция перед выбранным ходом. Выберите фигуру, затем клетку.';showPosition()};
+ $('#board-edit-cancel').onclick=()=>{boardEditing=false;fromSquare=null;proposal=null;$('#board-promotion').innerHTML='';lockEditor(false);showPosition()};
+ $('#board-edit-apply').onclick=()=>{if(!proposal)return;Object.assign(data,proposal.data);data.manuallyEdited=!!proposal.data.manuallyEdited;recognitionDecision?.('edit')};
  video.onloadedmetadata=showPosition;video.src=videoURL;
  $$('[data-recognition-move]').forEach(b=>b.onclick=()=>{position=+b.dataset.recognitionMove;showPosition()});
  $('#recognition-start').onclick=()=>{position=0;showPosition()};
  $('#recognition-prev').onclick=()=>{position=Math.max(0,position-1);showPosition()};
  $('#recognition-next').onclick=()=>{position=Math.min(data.moves.length,position+1);showPosition()};showPosition();
  $('#recognition-pgn').value=pgn.pgn();$('#recognition-reset').disabled=!data.manuallyEdited;
- $('#recognition-pgn').oninput=()=>{$('#recognition-continue').disabled=true;$('#recognized-pgn').disabled=true;$('#recognition-reset').disabled=false;$('#recognition-edit-error').textContent='Примените правки или верните исходное распознавание перед разбором.'};
+ $('#recognition-pgn').oninput=()=>{$('#recognition-board-edit').disabled=true;$('#recognition-continue').disabled=true;$('#recognized-pgn').disabled=true;$('#recognition-reset').disabled=false;$('#recognition-edit-error').textContent='Примените правки или верните исходное распознавание перед разбором.'};
  $('#recognition-apply').onclick=()=>{try{const updated=editRecognition(original,$('#recognition-pgn').value);Object.assign(data,updated);data.manuallyEdited=!!updated.manuallyEdited;recognitionDecision?.('edit')}catch(e){$('#recognition-edit-error').textContent=e.message}};
  $('#recognition-reset').onclick=()=>{Object.assign(data,structuredClone(original));data.manuallyEdited=false;recognitionDecision?.('edit')};
  $('#recognized-pgn').onclick=()=>download(pgn.pgn(),'recognized-party.pgn','application/x-chess-pgn');
