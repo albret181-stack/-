@@ -12,8 +12,14 @@ const fs=require('node:fs/promises');
  const context=await browser.newContext({serviceWorkers:'block',acceptDownloads:true,viewport:{width:390,height:844}});
  const page=await context.newPage();page.setDefaultTimeout(30000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ let classifierMode="normal";
+ const rb=new Chess();rb.move("e4");rb.move("e5");const resumeKeys=[boardKeyLocal(rb)];rb.move("Nc3");resumeKeys.push(boardKeyLocal(rb));rb.move("Nc6");resumeKeys.push(boardKeyLocal(rb));
+ function boardKeyLocal(b){return b.board().flat().map(p=>p?(p.color==='w'?p.type.toUpperCase():p.type):'.').join('')}
  // Only the image classifier is replaced: sequence recovery and UI use production code.
- await context.route('**/recognizer.js',route=>route.fulfill({contentType:'application/javascript',body:`let n=0;const keys=${JSON.stringify(keys)};onmessage=e=>{if(e.data.init){postMessage({ready:true});return}postMessage({key:keys[Math.min(2,Math.floor(n++/5))],errorScore:0})}` }));
+ await context.route('**/recognizer.js',route=>{
+  const mode=classifierMode,scriptKeys=mode==='normal'?keys:mode==='mismatch'?[keys[0]]:resumeKeys;
+  return route.fulfill({contentType:'application/javascript',body:`let n=0;const keys=${JSON.stringify(scriptKeys)};onmessage=e=>{if(e.data.init){postMessage({ready:true});return}const key=keys[Math.min(keys.length-1,Math.floor(n++/${mode==='normal'?5:3}))];setTimeout(()=>postMessage({key,errorScore:0}),${mode==='slow'?200:0})}`});
+ });
  await page.goto('http://127.0.0.1:8765');
  await page.getByText('Начните с вашей партии',{exact:true}).waitFor();
  const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('atelier-games-v1')||'[]'));
@@ -29,6 +35,24 @@ const fs=require('node:fs/promises');
   assert.match(await page.locator('#recognition-review').innerText(),/Восстановлено 2/);
  };
  await startVideo();
+ await page.locator('[data-recognition-move="2"]').click();
+ await page.locator('#recognition-resume-panel summary').click();
+ classifierMode='resume';await page.locator('#recognition-resume').click();
+ await page.locator('#resume-apply').waitFor();
+ assert.equal(await page.locator('#recognition-review .tag').count(),3,'proposal must preserve old tail until applied');
+ await page.locator('#resume-apply').click();
+ assert.equal(await page.locator('#recognition-review .tag').count(),4);
+ assert.match(await page.locator('[data-recognition-move="3"]').innerText(),/Nc3/);
+ await page.locator('#recognition-editor summary').click();await page.locator('#recognition-reset').click();
+ assert.equal(await page.locator('#recognition-review .tag').count(),3);
+ await page.locator('[data-recognition-move="2"]').click();await page.locator('#recognition-resume-panel summary').click();
+ classifierMode='mismatch';await page.locator('#recognition-resume').click();await page.waitForFunction(()=>document.querySelector('#resume-status').textContent.includes('Кадр не совпал'));
+ assert.equal(await page.locator('#recognition-review .tag').count(),3);
+ classifierMode='slow';await page.locator('#recognition-resume').click();await page.locator('#resume-stop').click();await page.waitForFunction(()=>!document.querySelector('#recognition-resume').disabled);
+ assert.equal(await page.locator('#recognition-review .tag').count(),3);assert.equal((await saved()).length,0);
+ await page.locator('#recognition-resume').click();await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('#import-start').disabled);
+ assert.equal(await page.locator('#recognition-review').isVisible(),false);assert.equal((await saved()).length,0);classifierMode='normal';await startVideo();
+
  await page.locator('[data-recognition-move="3"]').click();
  await page.locator('#recognition-board-edit').click();
  assert.equal(await page.locator('#recognition-continue').isDisabled(),true);
