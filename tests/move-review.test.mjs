@@ -5,3 +5,14 @@ test('black error uses white-centric score with correct sign',()=>{const g=game(
 test('playing the engine best move cannot be labelled an error due to search drift',()=>{const g=game(['e4']);g.evals[0]=[{cp:200,line:[{uci:'e2e4'}]}];g.evals[1]=[{cp:0,line:[]}];assert.equal(reviewMove(g,0).loss,0);assert.equal(reviewMove(g,0).grade,'Лучший по расчёту')});
 test('missing evaluations never assert an error or invent a reason',()=>{const g=game(['e4']);g.evals=[];const r=reviewMove(g,0);assert.equal(r.loss,null);assert.match(r.reason,/недостаточно/);assert.equal(r.best,null)});
 test('long speculative tail is not used as explanation',()=>{const g=game(['e4']);g.evals[0]=[{cp:100,line:[{uci:'d2d4'}]}];g.evals[1]=[{cp:-100,line:[{uci:'e7e5'},{uci:'d8h4'},{uci:'h4e1'}]}];const r=reviewMove(g,0);assert.match(r.reason,/пока не удалось определить/);assert.doesNotMatch(r.reason,/мат|забирает/)});
+
+function position(fen,played,best,reply){const b=new Chess(fen),m=b.move(played);return {positions:[fen,b.fen()],moves:[{uci:m.from+m.to+(m.promotion||''),san:m.san}],evals:[[{cp:0,line:[{uci:best}]}],[{cp:-500,line:reply?[{uci:reply}]:[]}]]}}
+test('better move explicitly prevents immediate mate',()=>{const g=game(['f3','e5','g4']);g.evals[2]=[{cp:-50,line:[{uci:'e2e4'}]}];g.evals[3]=[{cp:-100000,mate:-1,line:[{uci:'d8h4'}]}];assert.match(reviewMove(g,2).better,/не допускает мата в один ход/)});
+test('still allowing mate is not described as preventing it',()=>{const g=game(['e4','e5','Bc4','Nc6','Qh5','Nf6']);g.evals[5]=[{cp:20,line:[{uci:'a7a6'}]}];g.evals[6]=[{cp:100000,mate:1,line:[{uci:'h5f7'}]}];assert.doesNotMatch(reviewMove(g,5).better,/не допускает мата/)});
+const hanging='3r2k1/8/8/8/3Q4/8/7P/R5K1 w - - 0 1';
+test('moving a threatened piece is called safe only if no legal immediate capture exists',()=>{const g=position(hanging,'h2h3','d4e4','d8d4');assert.match(reviewMove(g,0).better,/где её нельзя сразу взять/);g.evals[0][0].line=[{uci:'d4d5'}];assert.match(reviewMove(g,0).better,/всё ещё можно сразу взять/)});
+test('added protection requires an actual legal recapture absent in played position',()=>{assert.match(reviewMove(position(hanging,'h2h3','a1d1','d8d4'),0).better,/добавляет защиту/)});
+test('unknown advantage is described as uncertain and compared by score',()=>{const r=reviewMove(position(new Chess().fen(),'e2e4','d2d4'),0);assert.match(r.better,/около 5.0 пешки/);assert.match(r.better,/не удалось надёжно объяснить/)});
+test('immediate mating alternative is explained as mate',()=>{const g=game(['f3','e5','g4','Nc6']);g.evals[3]=[{cp:-100000,mate:-1,line:[{uci:'d8h4'}]}];g.evals[4]=[{cp:-100,line:[]}];assert.match(reviewMove(g,3).better,/сразу ставит мат/)});
+
+test('same victim captured by another piece is not called a missed capture',()=>{const g=position('7k/8/8/8/Q2p4/8/8/6BK w - - 0 1','g1d4','a4d4');assert.doesNotMatch(reviewMove(g,0).better,/это взятие не выполняет/)});
