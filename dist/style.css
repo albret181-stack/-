@@ -31,3 +31,6 @@ body{background:radial-gradient(ellipse at 96% 0,#cbdcdd55,transparent 48%),var(
 .import-modes{display:flex;gap:8px;margin:16px 0}.import-modes button{flex:1}.import-modes [aria-pressed="true"]{background:var(--burgundy);color:white}#pgn-text{width:100%;box-sizing:border-box;min-height:150px;padding:12px;border:1px solid var(--line);border-radius:6px;background:var(--cream);color:var(--ink);font:inherit}#pgn-side-field{margin:16px 0}#pgn-side{margin-left:12px}#import-dialog [hidden]{display:none!important}
 
 .import-modes button{padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--cream);color:var(--ink);font:inherit;cursor:pointer}#pgn-side{padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--cream);color:var(--ink);font:inherit}
+
+/* Larger chess companions, with room for controls on narrow screens. */
+.brand-icon{width:220px;height:104px}@media(max-width:680px){header{flex-wrap:wrap;justify-content:center;gap:2px;padding-top:4px}.brand-icon{width:210px;height:100px}.header-right{width:100%;justify-content:flex-end;padding-bottom:5px}}@media(max-width:360px){.brand-icon{width:190px;height:90px}}

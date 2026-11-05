@@ -4,7 +4,7 @@ import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {OrientedSequence} from './oriented-sequence.js';
 import {RecognitionResume} from './recognition-resume.js';
 import {detectBoard} from './board-vision.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.6.1',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.6.2',BUILD_ID='source';
 let games=[],game,selected=0,boardView='played',baseFen='',actualIndex=0,busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null,resumeCancel=null;
 const moveReviews=new WeakMap();
 function moveInfo(i){let cache=moveReviews.get(game);if(!cache){cache=new Map();moveReviews.set(game,cache)}if(!cache.has(i))cache.set(i,reviewMove(game,i));return cache.get(i)}
@@ -235,4 +235,4 @@ $('#import-start').onclick=async()=>{
 };
 function renderEmpty(){$('#game-title').textContent='Добавьте партию, чтобы начать';$('#game-label').textContent='РАЗБОР ПАРТИИ';$('#opening').textContent='Загрузите запись экрана или PGN';$('#fragment').textContent='Партии хранятся на этом устройстве';$('#board').innerHTML='';$('#tab-content').innerHTML='<article class="insight-card"><h3>Начните с вашей партии</h3><p>Добавьте запись экрана или PGN кнопкой «＋ Партия».</p></article>';$('#games').innerHTML='';$('#count').textContent='0';$('#eval-label').textContent='—';$('#position-label').textContent='Здесь появится доска с вашей партией';$('#first').disabled=$('#prev').disabled=$('#next').disabled=$('#last').disabled=true}
 async function boot(){try{const samples=await fetch('./samples.json').then(r=>r.json());let saved=[];try{saved=JSON.parse(localStorage.getItem('atelier-games-v1')||'[]').filter(g=>g.moves?.length&&g.positions?.length&&g.evals?.length)}catch{}games=[...saved,...samples];if(games.length)selectGame(games[0]);else renderEmpty()}catch(e){$('#game-title').textContent='Не удалось загрузить партии';$('#tab-content').innerHTML='<p>Проверьте интернет и обновите страницу.</p>';console.error(e)}}
-boot();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js?v=0.6.1').catch(()=>{});
+boot();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js?v=0.6.2').catch(()=>{});
