@@ -1,10 +1,11 @@
+import {moveVisuals,arrowsSvg} from './move-visuals.js';
 import {Chess} from './chess.js';
 import {reviewMove} from './move-review.js';
 import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {OrientedSequence} from './oriented-sequence.js';
 import {RecognitionResume} from './recognition-resume.js';
 import {detectBoard} from './board-vision.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.6.5',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.7.0',BUILD_ID='source';
 let games=[],game,selected=0,boardView='played',baseFen='',actualIndex=0,busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null,resumeCancel=null;
 const moveReviews=new WeakMap();
 function moveInfo(i){let cache=moveReviews.get(game);if(!cache){cache=new Map();moveReviews.set(game,cache)}if(!cache.has(i))cache.set(i,reviewMove(game,i));return cache.get(i)}
@@ -63,6 +64,9 @@ function renderBoard(){
   let file=flipped?7-c:c,rank=flipped?r:7-r,sq='abcdefgh'[file]+(rank+1),p=b.get(sq);
   html+=`<div class="square ${(r+c)%2?'dark':''} ${lastMove&&(lastMove.slice(0,2)===sq||lastMove.slice(2,4)===sq)?bestShown?(lastMove.slice(2,4)===sq?'best-to':'best-from'):'highlight':''} ${bestShown&&moveInfo(i).bestThreats.some(t=>t.square===sq)?'threat-square':''}" data-square="${sq}" aria-label="${sq}${p?' '+p.color+p.type:''}">${c===0?`<span class="rank">${rank+1}</span>`:''}${r===7?`<span class="file">${'abcdefgh'[file]}</span>`:''}${p?`<img src="pieces/${p.color}${p.type}.svg" alt="" draggable="false">`:''}</div>`
  }$('#board').innerHTML=html;
+ const visuals=bestShown?moveVisuals(game.positions[i],r.best.uci):[];
+ if(visuals.length)$('#board').insertAdjacentHTML('beforeend',arrowsSvg(visuals,flipped));
+ $('#move-visual-notes').hidden=!visuals.length;$('#move-visual-notes').innerHTML=visuals.length?'<p class="subtle">Зелёная — ход · оранжевая — нападение · синяя пунктирная — контроль пустого поля.</p><ol>'+visuals.map((v,n)=>'<li class="visual-'+v.kind+'"><b>'+(n+1)+'.</b> '+esc(v.text)+'</li>').join('')+'</ol>':'';
  $('#top-player').textContent=flipped?'Белые':'Чёрные';$('#bottom-player').textContent=flipped?'Чёрные':'Белые';
  $('#bottom-player').textContent+=(flipped===(game.color==='black'))?' · вы':' · соперник';$('#top-player').textContent+=(flipped===(game.color==='black'))?' · соперник':' · вы';
  $('#eval-label').hidden=!bestShown;$('#eval-label').textContent=bestShown?'✓ Лучший ход':'';
@@ -233,6 +237,6 @@ $('#import-start').onclick=async()=>{
  const g={id:'local-'+Date.now(),title:data.title||file.name.replace(/\.[^.]+$/,'').slice(0,55),source:file.name,color,orientation:color,moves:data.moves,positions,evals,result:data.result||'*',engine:'Stockfish 19 Lite',recognitionWarning:data.recognitionWarning,videoDuration:data.duration,lastMoveTime:data.lastTime,firstGapTime:data.firstGapTime,lastGoodTime:data.lastGoodTime,recognitionGaps:data.recognitionGaps,stableBoardFrames:data.stableBoardFrames,recoveredCount:data.recoveredCount,manuallyEdited:data.manuallyEdited,resumedFrom:data.resumedFrom};games.unshift(g);persist();selectGame(g);$('#import-dialog').close();toast('Партия разобрана и сохранена на этом устройстве.');if(data.recognitionWarning)info('Проверьте распознавание видео',`<p>${esc(data.recognitionWarning)}</p><p>Найдено ${data.moves.length} полуходов. Последний подтверждённый ход: ${timeLabel(data.lastTime)} из ${timeLabel(data.duration)}.</p><p>Сверьте отмеченный участок с видео, прежде чем считать разбор полной партией.</p>`);
  }catch(e){$('#import-error').textContent=e.message}finally{busy=false;wake?.release();$('#file-input').disabled=false;for(const id of ['mode-file','mode-text','pgn-text','pgn-side'])$('#'+id).disabled=false;updateImport();$('#progress-box').hidden=true}
 };
-function renderEmpty(){$('#game-title').textContent='Добавьте партию, чтобы начать';$('#game-label').textContent='РАЗБОР ПАРТИИ';$('#opening').textContent='Загрузите запись экрана или PGN';$('#fragment').textContent='Партии хранятся на этом устройстве';$('#board').innerHTML='';$('#tab-content').innerHTML='<article class="insight-card"><h3>Начните с вашей партии</h3><p>Добавьте запись экрана или PGN кнопкой «＋ Партия».</p></article>';$('#games').innerHTML='';$('#count').textContent='0';$('#eval-label').textContent='—';$('#position-label').textContent='Здесь появится доска с вашей партией';$('#first').disabled=$('#prev').disabled=$('#next').disabled=$('#last').disabled=true}
+function renderEmpty(){$('#game-title').textContent='Добавьте партию, чтобы начать';$('#game-label').textContent='РАЗБОР ПАРТИИ';$('#opening').textContent='Загрузите запись экрана или PGN';$('#fragment').textContent='Партии хранятся на этом устройстве';$('#board').innerHTML='';$('#move-visual-notes').hidden=true;$('#move-visual-notes').innerHTML='';$('#tab-content').innerHTML='<article class="insight-card"><h3>Начните с вашей партии</h3><p>Добавьте запись экрана или PGN кнопкой «＋ Партия».</p></article>';$('#games').innerHTML='';$('#count').textContent='0';$('#eval-label').textContent='—';$('#position-label').textContent='Здесь появится доска с вашей партией';$('#first').disabled=$('#prev').disabled=$('#next').disabled=$('#last').disabled=true}
 async function boot(){try{const samples=await fetch('./samples.json').then(r=>r.json());let saved=[];try{saved=JSON.parse(localStorage.getItem('atelier-games-v1')||'[]').filter(g=>g.moves?.length&&g.positions?.length&&g.evals?.length)}catch{}games=[...saved,...samples];if(games.length)selectGame(games[0]);else renderEmpty()}catch(e){$('#game-title').textContent='Не удалось загрузить партии';$('#tab-content').innerHTML='<p>Проверьте интернет и обновите страницу.</p>';console.error(e)}}
 boot();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).catch(()=>{});
