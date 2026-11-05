@@ -1,42 +1,44 @@
-<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 122">
- <title>Кот и мышка играют в шахматы</title>
- <defs>
-  <g id="pawn"><circle cy="-19" r="4" fill="#b5c5c6"/><path d="m-3-15-2 10-4 4h18L5-5 3-15z" fill="#657e86"/><path d="M0-15 5-5 9-1H0z" fill="#355461"/></g>
-  <g id="rook"><path d="M-9-29v8l4 4-1 10-5 5h22L6-7 5-17l4-4v-8H4v5H1v-5h-3v5h-3v-5z" fill="#a2b2af"/><path d="M0-29v27h11L6-7 5-17l4-4v-8H4v5H1v-5z" fill="#58717a"/><path d="m-5-17 5 6 5-6z" fill="#d8ddd0"/></g>
-  <g id="king"><path d="M-2-43h4v5h5v4H2v5h7l-4 9 2 12 6 5h-26l6-5 2-12-4-9h7v-5h-5v-4h5z" fill="#b6c4bf"/><path d="M0-43v40h13L7-8 5-20l4-9H2v-5h5v-4H2v-5z" fill="#526d78"/><path d="m-9-29 9 12 9-12z" fill="#e0e2d2"/></g>
-  <g id="knight"><path d="m-8-3 3-10 2-7-6 3-3-5 6-7 1-6 7 3 6 7-2 11 5 11z" fill="#536c76"/><path d="m-5-29 7-3 6 7-9 6-3-5-5 7-3-5z" fill="#9eafa9"/><path d="m-1-19 7 5 5 11H-8l3-10z" fill="#2a4654"/><circle cx="-3" cy="-26" r="1" fill="#203a48"/></g>
-  <g id="bishop"><path d="m0-38-7 9 2 7 3 4-2 11-7 5h22L4-7 2-18l3-4 2-7z" fill="#b2c2bd"/><path d="M0-38v36h11L4-7 2-18l3-4 2-7z" fill="#66808a"/><path d="m-7-29 7 7 7-7-7-9z" fill="#d5dccf"/><path d="m0-36 2 10" stroke="#536c76" stroke-width="1.5"/></g>
- </defs>
- <g stroke="#365766" stroke-width="2" stroke-linejoin="round">
- <path d="M10 62v29h40v-4H15V62z" fill="#91a9aa"/><path d="M17 91v26M44 91v26"/>
- <path d="M210 44v48h-52v-5h47V44z" fill="#8ca5a8"/><path d="M164 92v25M204 92v25"/>
- <path d="M55 86v31h5l4-31M150 86l4 31h5V86" fill="#547582"/>
- </g>
- <path d="M20 83h175l-6 5H25z" fill="#3c5864"/>
- <path d="M49 79h115l10 4H43z" fill="#d6dbcb"/><path d="M57 79h8l-2 4h-9zM75 79h8v4h-10zM93 79h8v4h-9zM111 79h8l2 4h-10zM129 79h8l4 4h-10zM147 79h8l6 4h-10z" fill="#597782"/><path d="M25 83h166" stroke="#b28b5d" stroke-width="1.7"/>
- <g stroke="#3d5863" stroke-width=".55" stroke-linejoin="round">
-  <path fill="#7c969d" d="m15 76 5-14 13-6 12 9 7 8-13 10H17z"/>
-  <path fill="#c0cdc6" d="m20 62 9-12 9 5-5 10z"/>
-  <path fill="#496a78" d="m33 56 12 9 7 8-13 10-9-10z"/>
-  <path fill="#a7bbb9" d="m15 76 15-3 9 10H17z"/>
- </g>
- <path d="M18 79C2 79 3 99 16 98" fill="none" stroke="#526e7b" stroke-width="2.3" stroke-linecap="round"/>
- <circle cx="40" cy="67" r="1.1" fill="#213b4b"/>
- <use xlink:href="#pawn" transform="translate(57 82)"/>
- <use xlink:href="#king" transform="translate(80 82)"/>
- <use xlink:href="#rook" transform="translate(105 82)"/>
- <use xlink:href="#knight" transform="translate(129 82)"/>
- <use xlink:href="#bishop" transform="translate(151 82)"/>
- <g stroke="#2d4b5a" stroke-width=".65" stroke-linejoin="round">
-  <path fill="#496a7b" d="m157 25-3-17 13 8 10-10 4 19-13 17-15-5-8-7z"/>
-  <path fill="#a3b9ba" d="m157 25 10-9 1 26-15-5-8-7z"/>
-  <path fill="#294b5e" d="m167 16 10-10 4 19-13 17z"/>
-  <path fill="#6e929e" d="m168 42 13-17 15 19 9 36-17 7h-23l-5-18z"/>
-  <path fill="#294e63" d="m181 25 15 19 9 36-17 7-7-24z"/>
-  <path fill="#8faeb2" d="m168 42 13 21-16 24-5-18z"/>
-  <path fill="#365c70" d="m181 63 7 24h-23z"/>
-  <path fill="#b0c2bb" d="m165 78-10 6 2 4h25l-1-8z"/>
- </g>
- <circle cx="158" cy="28" r="1.4" fill="#223b4b"/>
- <path d="M201 80c21 6 17 22-2 20" fill="none" stroke="#31566c" stroke-width="4" stroke-linecap="round"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 150">
+<title>Мышка слева и кот справа сидят за шахматным столом</title>
+<g stroke="#385967" stroke-width="1.5" stroke-linejoin="round">
+<!-- Chairs sit outside the table, leaving a clear gap around each player. -->
+<path d="M21 91v27h47v-5H26V91z" fill="#a9bcba"/><path d="M27 118v22m34-22v22" fill="none"/>
+<path d="M279 65v53h-48v-5h43V65z" fill="#a9bcba"/><path d="M237 118v22m36-22v22" fill="none"/>
+<!-- Mouse: round ears, small pointed nose, compact body, separate curling tail. -->
+<path d="M34 109C9 107 8 132 25 132" fill="none" stroke="#6e8990" stroke-width="2.5" stroke-linecap="round"/>
+<path d="m32 108 3-17 12-10 14 9 4 19z" fill="#8fa9ad"/>
+<path d="m35 91 12-10 1 28H32z" fill="#bac9c4"/>
+<path d="m48 82 17 8-17 19z" fill="#62838e"/>
+<path d="m42 75 10-7 16 8 10 10-17 7-19-7z" fill="#8fa9ad"/>
+<path d="m52 68 16 8-7 17-19-7z" fill="#b8c8c4"/>
+<circle cx="43" cy="67" r="10" fill="#afc0be"/><path d="m36 64 7-5 5 9-9 4z" fill="#7b969e" stroke="none"/>
+<circle cx="59" cy="65" r="8" fill="#becbc5"/><path d="m55 63 5-3 3 7-6 2z" fill="#8aa3a8" stroke="none"/>
+<circle cx="65" cy="79" r="1.7" fill="#203e4c" stroke="none"/><circle cx="77" cy="86" r="1.6" fill="#203e4c" stroke="none"/>
+<path d="m69 87 10 4m-10-2 10-2" fill="none" stroke-width=".7"/>
+<!-- Cat: triangular ears, distinct muzzle, upright torso. No reaching arms. -->
+<path d="M262 110c28 1 30 25 10 24" fill="none" stroke="#34596c" stroke-width="4" stroke-linecap="round"/>
+<path d="m239 63-10 47h40l-5-27-14-22z" fill="#5c8090"/>
+<path d="m250 61 14 22 5 27h-17l-9-29z" fill="#2e5267"/>
+<path d="m239 63 4 18-14 29h23z" fill="#96b0b3"/>
+<path d="m237 55 12 0 2 10-14 2z" fill="#96b0b3"/><path d="m227 34-3-20 16 12 15-15 2 23-8 24-19 1-14-13z" fill="#7e9fa9"/>
+<path d="m224 14 16 12-13 8z" fill="#b0c3c0"/>
+<path d="m240 26 15-15 2 23-8 24z" fill="#365d70"/>
+<path d="m227 34 13-8-3 33-7 0-14-13z" fill="#b9cac4"/>
+<circle cx="229" cy="39" r="1.7" fill="#203e4c" stroke="none"/><path d="m216 46 4 2-1-4z" fill="#203e4c"/>
+<path d="m221 50-12 1m13 2-11 4" fill="none" stroke-width=".7"/>
+<path d="m236 107-11 5 2 3h22l-2-7z" fill="#a6bfbd"/>
+<!-- Table and small pieces stay in the centre, separated from both players. -->
+<path d="m86 94 10-8h108l10 8v6H86z" fill="#abc0bb"/>
+<path d="M86 94h128v6H86z" fill="#3e6271"/>
+<path d="M96 100v39h5l3-39m92 0 3 39h5v-39" fill="#5d7e88"/>
+<path d="m97 87-9 7h124l-9-7z" fill="#dce0d0" stroke-width=".7"/>
+<path d="m108 87-5 7h10l3-7m12 0-1 7h10l-1-7m12 0 3 7h10l-5-7m12 0 7 7h10l-9-7" fill="#66838a" stroke="none"/>
+</g>
+<!-- Chessmen have their own silhouettes and contrasting values. -->
+<g fill="#365766" stroke="#294b59" stroke-width=".7">
+<circle cx="108" cy="76" r="3.2"/><path d="m106 79-2 8h9l-3-8z"/>
+<path d="M126 62v6m-3-3h6m-7 6h8l-2 6 2 9h-9l3-9z" fill="#b4c6c2" stroke-width="1.8"/>
+<path d="M144 69v6l3 3-2 8h11l-2-8 3-3v-6h-3v4h-2v-4h-3v4h-2v-4z"/>
+<path d="m167 86 2-9-3 1-2-3 5-6 4 2 4 6-3 9z" fill="#76959d"/>
+<circle cx="194" cy="76" r="3.2" fill="#bacbc5"/><path d="m192 79-2 8h9l-3-8z" fill="#bacbc5"/>
+</g></svg>
