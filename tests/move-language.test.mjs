@@ -1,0 +1,10 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {describeMove,moveStory} from '../dist/move-language.js';
+const queen='7k/8/8/2q5/8/8/1P6/7K w - - 0 1';
+test('movement uses a Russian piece name and both squares',()=>{assert.match(describeMove(queen,'b2b4'),/Пешка с b2 идёт на b4/)});
+test('pawn attack on an undefended queen is explained without forcing a retreat',()=>{const s=moveStory(queen,'b2b4');assert.match(s.idea,/Пешка на b4 нападает на ферзя на c5/);assert.match(s.idea,/не защищена другими фигурами/);assert.doesNotMatch(s.idea,/придётся/);assert.equal(s.threats[0].square,'c5');assert.equal(s.threats[0].undefended,true)});
+test('defended queen is not called undefended',()=>{const s=moveStory('7k/1n6/8/2q5/8/8/1P6/7K w - - 0 1','b2b4');assert.equal(s.threats[0].undefended,false);assert.match(s.idea,/легальное ответное взятие/);assert.doesNotMatch(s.idea,/сейчас не защищена/)});
+test('a pinned pawn cannot invent a legal queen threat',()=>{const s=moveStory('4r1k1/8/8/8/3q4/8/4P3/4K3 w - - 0 1','e2e3');assert.deepEqual(s.threats,[]);assert.doesNotMatch(s.idea,/ферзя/)});
+test('promotion explains the new piece',()=>{assert.match(describeMove('7k/P7/8/8/8/8/8/7K w - - 0 1','a7a8q'),/превращается в ферзя/)});
+test('castling explains both king and rook',()=>{assert.match(describeMove('r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1','e1g1'),/король с e1 переходит на g1, ладья с h1 — на f1/)});
+test('en passant uses the captured pawn square, not the landing square',()=>{const s=describeMove('7k/8/8/3pP3/8/8/8/7K w - d6 0 1','e5d6');assert.match(s,/идёт на d6/);assert.match(s,/пешку на d5/)});
+test('an existing attack is described as preserved, not newly created',()=>{assert.match(moveStory('4q2k/8/8/8/8/8/8/4R2K w - - 0 1','e1e2').idea,/сохраняет нападение/)});
