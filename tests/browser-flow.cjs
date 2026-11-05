@@ -79,7 +79,7 @@ const fs=require('node:fs/promises');
  await page.waitForFunction(()=>!document.querySelector('#import-start').disabled);
  assert.equal((await saved()).length,0,'cancel must not save');
  assert.equal(await page.locator('#recognition-review').isVisible(),false);
- await startVideo('black');assert.equal(await page.locator('#recognition-board .square').first().getAttribute('data-square'),'h1');
+ await startVideo('black');assert.match(await page.locator('#recognition-review').innerText(),/белые снизу/);assert.equal(await page.locator('#recognition-board .square').first().getAttribute('data-square'),'a8');
  await page.locator('[data-recognition-move="1"]').click();await page.locator('#recognition-board-edit').click();
  await page.locator('#recognition-board [data-square="e2"]').click();await page.locator('#recognition-board [data-square="e5"]').click();assert.equal(await page.locator('#board-edit-apply').isDisabled(),true);
  await page.locator('#recognition-board [data-square="e2"]').click();await page.locator('#recognition-board [data-square="e3"]').click();await page.locator('#board-edit-apply').click();
@@ -125,5 +125,14 @@ const fs=require('node:fs/promises');
  assert.match(await p2.locator('#import-error').innerText(),/остановлена/);
  console.log('PASS: cancel on final engine position prevents saving');
  await c2.close();
+ // Production module worker: an empty board is not a playable game.
+ const c3=await browser.newContext({serviceWorkers:'block'}),p3=await c3.newPage();
+ await p3.goto('http://127.0.0.1:8765');await p3.getByText('Начните с вашей партии',{exact:true}).waitFor();
+ await p3.locator('.upload-trigger').click();await p3.locator('#file-input').setInputFiles('/tmp/chess-synthetic.webm');await p3.locator('#import-start').click();
+ await p3.waitForFunction(()=>document.querySelector('#import-error').textContent);
+ assert.match(await p3.locator('#import-error').innerText(),/Доска найдена, но фигуры/);
+ assert.equal(await p3.evaluate(()=>JSON.parse(localStorage.getItem('atelier-games-v1')||'[]').length),0);
+ console.log('PASS: production image worker rejects empty checkerboard without saving');await c3.close();
+
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
