@@ -173,6 +173,16 @@ const fs=require('node:fs/promises');
  assert.match(await p2.locator('#import-error').innerText(),/остановлена/);
  console.log('PASS: cancel on final engine position prevents saving');
  await c2.close();
+ // Pasted PGN uses the same analysis flow; invalid text stays editable.
+ const pc=await browser.newContext({serviceWorkers:'block'}),pp=await pc.newPage();
+ await pc.route('**/stockfish-19-lite-single.js',route=>route.fulfill({contentType:'application/javascript',body:`onmessage=e=>{if(e.data==='uci')postMessage('uciok');if(String(e.data).startsWith('go ')){postMessage('info depth 1 score cp 0 pv g1f3');postMessage('bestmove g1f3')}}`}));
+ await pp.goto('http://127.0.0.1:8765');await pp.locator('.upload-trigger').click();await pp.locator('#mode-text').click();
+ assert.equal(await pp.locator('#import-start').isDisabled(),true);
+ await pp.locator('#pgn-text').fill('1. e4 e5 2. Nope');await pp.locator('#import-start').click();await pp.waitForFunction(()=>document.querySelector('#import-error').textContent.includes('PGN'));
+ assert.equal(await pp.locator('#pgn-text').inputValue(),'1. e4 e5 2. Nope');assert.equal(await pp.evaluate(()=>JSON.parse(localStorage.getItem('atelier-games-v1')||'[]').length),0);
+ await pp.locator('#pgn-text').fill('[White "Synthetic White"]\n[Black "Synthetic Black"]\n[Result "0-1"]\n\n1. f3 e5 2. g4 Qh4# 0-1');await pp.locator('#pgn-side').selectOption('black');await pp.locator('#import-start').click();await pp.waitForFunction(()=>JSON.parse(localStorage.getItem('atelier-games-v1')||'[]').length===1);
+ const pasted=await pp.evaluate(()=>JSON.parse(localStorage.getItem('atelier-games-v1'))[0]);assert.equal(pasted.moves.length,4);assert.equal(pasted.color,'black');assert.equal(pasted.title,'Synthetic White — Synthetic Black');assert.equal(pasted.result,'0-1');assert.equal(pasted.positions.length,5);
+ console.log('PASS: pasted PGN validation, metadata, black-side analysis and persistence');await pc.close();
  // Production module worker: an empty board is not a playable game.
  const c3=await browser.newContext({serviceWorkers:'block'}),p3=await c3.newPage();
  await p3.goto('http://127.0.0.1:8765');await p3.getByText('Начните с вашей партии',{exact:true}).waitFor();
