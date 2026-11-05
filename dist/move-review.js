@@ -1,5 +1,38 @@
 import {Chess} from './chess.js';
 const pieces={p:'пешку',n:'коня',b:'слона',r:'ладью',q:'ферзя',k:'короля'};
+function mateInOne(board){
+ for(const move of board.moves({verbose:true})){board.move(move);const mate=board.isCheckmate();board.undo();if(mate)return true;}
+ return false;
+}
+function apply(board,move){try{return board.move(move)}catch{return null}}
+function recapture(board,square){return board.moves({verbose:true}).find(m=>m.to===square&&m.captured)}
+function explainBetter(game,index,best,reply,loss){
+ if(!best)return null;
+ const played=game.moves[index];
+ if(best.uci===played.uci)return 'Ваш ход совпадает с лучшим ходом текущего расчёта.';
+ const candidate=new Chess(best.fen),actual=new Chess(game.positions[index+1]);
+ if(candidate.isCheckmate()&&actual.isCheckmate())return 'Оба хода сразу ставят мат; преимущества одного перед другим здесь нет.';
+ if(candidate.isCheckmate())return `${best.san} сразу ставит мат. Сыгранный ${played.san} партию матом не завершает.`;
+ if(reply?.mate&&!mateInOne(candidate))return `${best.san} не допускает мата в один ход. После ${played.san} соперник мог поставить мат ходом ${reply.san}; после ${best.san} немедленного мата нет.`;
+ if(reply?.captured){
+  const captureUci=reply.from+reply.to+(reply.promotion||''),sameCapture=apply(candidate,captureUci);
+  if(!sameCapture||!sameCapture.captured){
+   const movedVictim=best.from===reply.to;
+   const canTake=movedVictim&&new Chess(best.fen).moves({verbose:true}).some(m=>m.to===best.to&&m.captured);
+   if(movedVictim&&!canTake)return `${best.san} уводит ${pieces[best.piece]} с ${best.from} на ${best.to}, где её нельзя сразу взять. После ${played.san} соперник мог забрать её ходом ${reply.san}.`;
+   if(movedVictim&&canTake)return `После ${best.san} фигуру всё ещё можно сразу взять. Движок предпочитает этот ход, но конкретное преимущество пока не удалось подтвердить.`;
+   return `${best.san} не допускает конкретного взятия ${reply.san}, доступного после вашего ${played.san}.`;
+  }
+  const actualCapture=apply(actual,captureUci);
+  if(actualCapture&&!recapture(actual,reply.to)&&recapture(candidate,reply.to))return `${best.san} добавляет защиту: на взятие ${reply.san} можно ответить взятием на ${reply.to}. После вашего ${played.san} такого ответного взятия нет.`;
+ }
+ let playedMove=null;try{playedMove=new Chess(game.positions[index]).move(played.uci)}catch{}
+ if(best.captured&&!(playedMove?.captured&&playedMove.to===best.to))return `${best.san} использует возможность сразу взять ${pieces[best.captured]} на ${best.to}. Ход ${played.san} это взятие не выполняет; движок оценивает позицию после ${best.san} выше. Само взятие не обязательно означает чистый выигрыш материала.`;
+ const before=game.evals[index]?.[0],after=game.evals[index+1]?.[0];
+ const comparison=Number.isFinite(loss)&&before?.mate==null&&after?.mate==null?` По текущему расчёту разница с ${played.san} — около ${(loss/100).toFixed(1)} пешки в вашу пользу.`:'';
+ return `Движок предпочитает ${best.san} в этой позиции.${comparison} Конкретное преимущество этого хода пока не удалось надёжно объяснить.`;
+}
+
 export function reviewMove(game,index){
  const before=game.evals[index]?.[0],after=game.evals[index+1]?.[0],played=game.moves[index],side=index%2===0?1:-1;
  const available=Number.isFinite(before?.cp)&&Number.isFinite(after?.cp);
@@ -17,6 +50,6 @@ export function reviewMove(game,index){
   else if(reply?.captured)reason=`После ${played.san} сопернику доступно взятие: ${reply.san} забирает ${pieces[reply.captured]} на ${reply.to}. Оценка вашей позиции ухудшается.`;
   else if(best?.captured)reason=`В исходной позиции движок предпочитает ${best.san} — взятие ${pieces[best.captured]} на ${best.to}. После сыгранного ${played.san} оценка хуже.`;
  }
- const better=best?best.captured?`${best.san} сразу берёт ${pieces[best.captured]} на ${best.to}.`:best.flags.includes('k')||best.flags.includes('q')?`${best.san} выполняет рокировку.`:`${best.san}: переместить ${pieces[best.piece]} с ${best.from} на ${best.to}.`:null;
+ const better=explainBetter(game,index,best,reply,loss);
  return {loss,grade,best,reason,better};
 }

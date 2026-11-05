@@ -4,7 +4,7 @@ import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {OrientedSequence} from './oriented-sequence.js';
 import {RecognitionResume} from './recognition-resume.js';
 import {detectBoard} from './board-vision.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.4.0',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.4.1',BUILD_ID='source';
 let games=[],game,selected=0,tab='errors',boardView='played',baseFen='',actualIndex=0,busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null,resumeCancel=null;
 const moveReviews=new WeakMap();
 function moveInfo(i){let cache=moveReviews.get(game);if(!cache){cache=new Map();moveReviews.set(game,cache)}if(!cache.has(i))cache.set(i,reviewMove(game,i));return cache.get(i)}
@@ -34,7 +34,7 @@ function detailCard(i){
  const r=moveInfo(i),played=game.moves[i],own=mine(i);
  if(!own)return '<article class="move-detail" id="move-detail"><h3>Ход соперника: '+esc(played.san)+'</h3><p>В разбор ошибок входят только ходы вашей стороны — фигур снизу записи.</p></article>';
  const correction=r.loss>=60&&r.best&&r.best.uci!==played.uci;
- return `<article class="insight-card" id="move-detail"><div class="insight-kicker"><span>ВАШ ХОД ${Math.floor(i/2)+1}</span><span class="classification">${esc(r.grade)}</span></div><h3>Вы сыграли ${esc(played.san)}</h3><p><b>${r.loss>=60?'Почему ход хуже':'Оценка хода'}</b><br>${esc(r.reason)}</p>${correction?`<h3>Лучше было ${esc(r.best.san)}</h3><p>${esc(r.better)}</p><div class="line-switch"><button data-board-view="played" class="${boardView==='played'?'active':''}">Мой ход ${esc(played.san)}</button><button data-board-view="better" class="${boardView==='better'?'active':''}">Лучший ход ${esc(r.best.san)}</button></div>`:''}<p class="subtle">Оценка Stockfish предварительная. Конкретная причина указывается только по доступным данным расчёта.</p></article>`;
+ return `<article class="insight-card" id="move-detail"><div class="insight-kicker"><span>ВАШ ХОД ${Math.floor(i/2)+1}</span><span class="classification">${esc(r.grade)}</span></div><h3>Вы сыграли ${esc(played.san)}</h3><p><b>${r.loss>=60?'Почему ход хуже':'Оценка хода'}</b><br>${esc(r.reason)}</p>${correction?`<h3>Лучше было ${esc(r.best.san)}</h3><p><b>Почему этот ход сильнее</b><br>${esc(r.better)}</p><div class="line-switch"><button data-board-view="played" class="${boardView==='played'?'active':''}">Мой ход ${esc(played.san)}</button><button data-board-view="better" class="${boardView==='better'?'active':''}">Лучший ход ${esc(r.best.san)}</button></div>`:''}<p class="subtle">Оценка Stockfish предварительная. Конкретная причина указывается только по доступным данным расчёта.</p></article>`;
 }
 function bindComparison(){
  $$('[data-board-view]').forEach(b=>b.onclick=()=>{boardView=b.dataset.boardView;render()});
@@ -228,4 +228,4 @@ $('#import-start').onclick=async()=>{
 };
 function renderEmpty(){$('#game-title').textContent='Добавьте партию, чтобы начать';$('#game-label').textContent='РАЗБОР ПАРТИИ';$('#opening').textContent='Загрузите запись экрана или PGN';$('#fragment').textContent='Партии хранятся на этом устройстве';$('#board').innerHTML='';$('#tab-content').innerHTML='<article class="move-detail"><h3>Начните с вашей партии</h3><p>Нажмите «Добавить партию», чтобы загрузить PGN или запись экрана. Затем здесь появится ваша партия с оценкой каждого хода.</p></article>';$('#games').innerHTML='';$('#count').textContent='0';$('#eval-label').textContent='—';$('#position-label').textContent='Здесь появится доска с вашей партией';$('#first').disabled=$('#prev').disabled=$('#next').disabled=$('#last').disabled=true}
 async function boot(){try{const samples=await fetch('./samples.json').then(r=>r.json());let saved=[];try{saved=JSON.parse(localStorage.getItem('atelier-games-v1')||'[]').filter(g=>g.moves?.length&&g.positions?.length&&g.evals?.length)}catch{}games=[...saved,...samples];if(games.length)selectGame(games[0]);else renderEmpty()}catch(e){$('#game-title').textContent='Не удалось загрузить партии';$('#tab-content').innerHTML='<p>Проверьте интернет и обновите страницу.</p>';console.error(e)}}
-boot();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js?v=0.4.0').catch(()=>{});
+boot();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js?v=0.4.1').catch(()=>{});
