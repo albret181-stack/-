@@ -1,0 +1,8 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {Chess} from '../dist/chess.js';import {moveVisuals,squarePoint,arrowsSvg} from '../dist/move-visuals.js';
+test('orientation reverses both coordinates',()=>{assert.deepEqual(squarePoint('a1'),[.5,7.5]);assert.deepEqual(squarePoint('a1',true),[7.5,.5]);assert.deepEqual(squarePoint('h8',true),[.5,7.5])});
+test('central pawn controls empty e5 without pretending to attack a piece',()=>{const v=moveVisuals(new Chess().fen(),'d2d4');assert.equal(v[0].kind,'move');assert.ok(v.some(x=>x.kind==='control'&&x.to==='e5'));assert.match(v.find(x=>x.kind==='control').text,/сейчас пустое/)});
+test('pawn attack on undefended queen is a specific target',()=>{const v=moveVisuals('7k/8/8/2q5/8/8/1P6/7K w - - 0 1','b2b4');assert.ok(v.some(x=>x.kind==='threat'&&x.to==='c5'));assert.match(v.find(x=>x.kind==='threat').text,/ферзя на c5/)});
+test('pinned pawn does not invent an attack on queen',()=>{const v=moveVisuals('4r2k/8/8/8/3q4/8/4P3/4K3 w - - 0 1','e2e3');assert.ok(!v.some(x=>x.to==='d4'&&x.kind==='threat'))});
+test('check points to king and explains legal defences',()=>{const v=moveVisuals('7k/8/8/8/8/8/8/R6K w - - 0 1','a1a8');assert.ok(v.some(x=>x.to==='h8'&&x.kind==='threat'));assert.match(v[1].text,/обязан устранить шах/)});
+test('SVG creates differentiated arrows and no executable content',()=>{const svg=arrowsSvg(moveVisuals(new Chess().fen(),'d2d4'));assert.match(svg,/data-arrow="move"/);assert.match(svg,/stroke-dasharray/);assert.doesNotMatch(svg,/<script|onclick/)});
+test('invalid move has no overlay',()=>assert.deepEqual(moveVisuals(new Chess().fen(),'d2d8'),[]));

@@ -34,3 +34,5 @@ body{background:radial-gradient(ellipse at 96% 0,#cbdcdd55,transparent 48%),var(
 
 /* Larger chess companions, with room for controls on narrow screens. */
 .brand-icon{width:220px;height:104px}@media(max-width:680px){header{flex-wrap:wrap;justify-content:center;gap:2px;padding-top:4px}.brand-icon{width:210px;height:100px}.header-right{width:100%;justify-content:flex-end;padding-bottom:5px}}@media(max-width:360px){.brand-icon{width:190px;height:90px}}
+
+#board{position:relative}.move-arrows{position:absolute;inset:0;width:100%;height:100%;z-index:4;pointer-events:none;overflow:visible}#move-visual-notes{margin:8px 0 12px;font-size:12px;line-height:1.5}#move-visual-notes ol{list-style:none;padding:0;margin:6px 0;display:grid;gap:6px}#move-visual-notes li{padding:8px 10px;background:var(--cream);border-left:3px solid #23876d}#move-visual-notes .visual-threat{border-color:#c07732}#move-visual-notes .visual-control{border-color:#427fa5}#move-visual-notes .subtle{margin:0;font-size:11px}
