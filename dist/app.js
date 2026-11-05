@@ -89,7 +89,7 @@ class Engine{
 }
 async function getEngine(){if(!engine)engine=new Engine();try{await engine.ready;return engine}catch(e){engine?.worker.terminate();engine=null;throw e}}
 let importMode='file';
-function updateImport(){const textMode=importMode==='text';$('#file-source').hidden=textMode;$('#text-source').hidden=!textMode;$('#pgn-side-field').hidden=!textMode&&!/\.pgn$/i.test(selectedFile?.name||'');$('#mode-file').setAttribute('aria-pressed',String(!textMode));$('#mode-text').setAttribute('aria-pressed',String(textMode));$('#import-start').disabled=busy||!(textMode?$('#pgn-text').value.trim():selectedFile);$('#import-start').textContent=textMode||/\.pgn$/i.test(selectedFile?.name||'')?'Разобрать партию':'Распознать и разобрать'}
+function updateImport(){const textMode=importMode==='text';$('#import-dialog .support-note').hidden=textMode||/\.pgn$/i.test(selectedFile?.name||'');$('#file-source').hidden=textMode;$('#text-source').hidden=!textMode;$('#pgn-side-field').hidden=!textMode&&!/\.pgn$/i.test(selectedFile?.name||'');$('#mode-file').setAttribute('aria-pressed',String(!textMode));$('#mode-text').setAttribute('aria-pressed',String(textMode));$('#import-start').disabled=busy||!(textMode?$('#pgn-text').value.trim():selectedFile);$('#import-start').textContent=textMode||/\.pgn$/i.test(selectedFile?.name||'')?'Разобрать партию':'Распознать и разобрать'}
 $('#mode-file').onclick=()=>{importMode='file';$('#import-error').textContent='';updateImport()};
 $('#mode-text').onclick=()=>{importMode='text';$('#import-error').textContent='';updateImport();$('#pgn-text').focus()};
 $('#pgn-text').oninput=()=>{$('#import-error').textContent='';updateImport()};

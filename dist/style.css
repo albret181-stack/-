@@ -29,3 +29,5 @@ body{background:radial-gradient(ellipse at 96% 0,#cbdcdd55,transparent 48%),var(
 @media(max-width:360px){.brand-icon{width:104px;height:52px}.library .pill{display:none}.header-right{gap:4px}}
 
 .import-modes{display:flex;gap:8px;margin:16px 0}.import-modes button{flex:1}.import-modes [aria-pressed="true"]{background:var(--burgundy);color:white}#pgn-text{width:100%;box-sizing:border-box;min-height:150px;padding:12px;border:1px solid var(--line);border-radius:6px;background:var(--cream);color:var(--ink);font:inherit}#pgn-side-field{margin:16px 0}#pgn-side{margin-left:12px}#import-dialog [hidden]{display:none!important}
+
+.import-modes button{padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--cream);color:var(--ink);font:inherit;cursor:pointer}#pgn-side{padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--cream);color:var(--ink);font:inherit}
