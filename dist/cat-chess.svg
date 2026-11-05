@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 122">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 122">
  <title>Кот и мышка играют в шахматы</title>
  <defs>
   <g id="pawn"><circle cy="-19" r="4" fill="#b5c5c6"/><path d="m-3-15-2 10-4 4h18L5-5 3-15z" fill="#657e86"/><path d="M0-15 5-5 9-1H0z" fill="#355461"/></g>
@@ -22,11 +22,11 @@
  </g>
  <path d="M18 79C2 79 3 99 16 98" fill="none" stroke="#526e7b" stroke-width="2.3" stroke-linecap="round"/>
  <circle cx="40" cy="67" r="1.1" fill="#213b4b"/>
- <use href="#pawn" transform="translate(57 82)"/>
- <use href="#king" transform="translate(80 82)"/>
- <use href="#rook" transform="translate(105 82)"/>
- <use href="#knight" transform="translate(129 82)"/>
- <use href="#bishop" transform="translate(151 82)"/>
+ <use xlink:href="#pawn" transform="translate(57 82)"/>
+ <use xlink:href="#king" transform="translate(80 82)"/>
+ <use xlink:href="#rook" transform="translate(105 82)"/>
+ <use xlink:href="#knight" transform="translate(129 82)"/>
+ <use xlink:href="#bishop" transform="translate(151 82)"/>
  <g stroke="#2d4b5a" stroke-width=".65" stroke-linejoin="round">
   <path fill="#496a7b" d="m157 25-3-17 13 8 10-10 4 19-13 17-15-5-8-7z"/>
   <path fill="#a3b9ba" d="m157 25 10-9 1 26-15-5-8-7z"/>
