@@ -1,1 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="40" fill="#740e1c"/><text x="96" y="143" font-family="serif" text-anchor="middle" font-size="148" fill="#fff0ce">♞</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><title>Шахматное ателье</title><rect width="512" height="512" rx="64" fill="#eef0ee"/><path d="M292 32h156l32 32v156z" fill="#e1e7e5"/><path d="M64 32h384l32 32v384l-32 32H64l-32-32V64z" fill="none" stroke="#bbc7c9" stroke-width="2"/><g transform="translate(52 126) scale(5.1)">
+ <g stroke="#394248" stroke-width=".45" stroke-linejoin="round">
+  <path fill="#697378" d="m9 31 5-7 9 4-4 9H7z"/>
+  <path fill="#aeb6b7" d="m14 24 3-6 5 3 1 7z"/>
+  <path fill="#d9dedc" d="m9 31 5-7 2 10z"/>
+  <path fill="#3e484e" d="m16 34 7-6 3 5-7 4z"/>
+  <path fill="#4e595f" d="m47 13-1-11 9 6 7-5 2 12-11 9z"/>
+  <path fill="#b5bcbd" d="m47 13 8-5-2 16z"/>
+  <path fill="#2d373e" d="m55 8 7-5 2 12-11 9z"/>
+  <path fill="#788389" d="m47 13-5 6 11 5z"/>
+  <path fill="#69767d" d="m53 24 11-9 7 13-5 13H49l-2-10z"/>
+  <path fill="#3f4b52" d="m64 15 7 13-5 13-5-13z"/>
+  <path fill="#8d999e" d="m53 24 8 4-12 13-2-10z"/>
+  <path fill="#28343d" d="m61 28 5 13H49z"/>
+  <path fill="#a4aeb0" d="m52 24-9-3-8 8 4 2 7-4 6 4z"/>
+  <path fill="#536268" d="m43 21 3 6-7 4-4-2z"/>
+  <path fill="#c8cecb" d="m28 29 4-7 4 7-2 6h-5z"/>
+  <path fill="#66767b" d="m32 22 4 7-2 6-2-5z"/>
+  <path fill="#39484f" d="m29 35-3 5h12l-4-5z"/>
+ </g>
+ <path d="M8 35C0 34 1 45 8 44M67 38c13 1 12 12 1 8M6 41h64" fill="none" stroke="#3f4b52" stroke-width="1.7" stroke-linecap="round"/>
+ <path d="m9 30 3 1-3 1" fill="#28343d"/>
+ <circle cx="49" cy="16" r=".8" fill="#263238"/>
+</g></svg>
