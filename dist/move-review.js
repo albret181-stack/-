@@ -1,3 +1,4 @@
+import {positionalComparison} from './position-language.js';
 import {Chess} from './chess.js';
 import {describeMove,moveStory} from './move-language.js';
 const pieces={p:'пешку',n:'коня',b:'слона',r:'ладью',q:'ферзя',k:'короля'};
@@ -29,6 +30,8 @@ function explainBetter(game,index,best,reply,loss){
  }
  let playedMove=null;try{playedMove=new Chess(game.positions[index]).move(played.uci)}catch{}
  if(best.captured&&!(playedMove?.captured&&playedMove.to===best.to))return `${best.san} использует возможность сразу взять ${pieces[best.captured]} на ${best.to}. Ход ${played.san} это взятие не выполняет; движок оценивает позицию после ${best.san} выше. Само взятие не обязательно означает чистый выигрыш материала.`;
+ const positional=positionalComparison(game.positions[index],played.uci,best.uci);
+ if(positional)return positional.better+' В отличие от сыгранного хода, этот вариант решает перечисленные задачи. Это позиционные преимущества, а не гарантия выигрыша.';
  const before=game.evals[index]?.[0],after=game.evals[index+1]?.[0];
  const comparison=Number.isFinite(loss)&&before?.mate==null&&after?.mate==null?` По текущему расчёту разница с ${played.san} — около ${(loss/100).toFixed(1)} пешки в вашу пользу.`:'';
  return `Движок предпочитает ${best.san} в этой позиции.${comparison} Конкретное преимущество этого хода пока не удалось надёжно объяснить.`;
@@ -51,6 +54,7 @@ export function reviewMove(game,index){
   else if(reply?.captured)reason=`После ${played.san} сопернику доступно взятие: ${reply.san} забирает ${pieces[reply.captured]} на ${reply.to}. Оценка вашей позиции ухудшается.`;
   else if(best?.captured)reason=`В исходной позиции движок предпочитает ${best.san} — можно взять ${pieces[best.captured]} на ${best.to}. После сыгранного ${played.san} оценка хуже.`;
  }
+ if(loss>=60&&best&&reason.includes('Конкретную тактическую причину')){const positional=positionalComparison(game.positions[index],played.uci,best.uci);if(positional)reason=positional.reason;}
  const better=explainBetter(game,index,best,reply,loss);
  const playedStory=moveStory(game.positions[index],played.uci),bestStory=best?moveStory(game.positions[index],best.uci):null;
  return {loss,grade,best,reason,better,playedText:playedStory.action,playedIdea:playedStory.idea,bestText:bestStory?.action,bestIdea:bestStory?.idea,bestThreats:bestStory?.threats||[]};
