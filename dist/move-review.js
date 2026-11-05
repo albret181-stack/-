@@ -1,4 +1,5 @@
 import {Chess} from './chess.js';
+import {describeMove,moveStory} from './move-language.js';
 const pieces={p:'пешку',n:'коня',b:'слона',r:'ладью',q:'ферзя',k:'короля'};
 function mateInOne(board){
  for(const move of board.moves({verbose:true})){board.move(move);const mate=board.isCheckmate();board.undo();if(mate)return true;}
@@ -19,7 +20,7 @@ function explainBetter(game,index,best,reply,loss){
   if(!sameCapture||!sameCapture.captured){
    const movedVictim=best.from===reply.to;
    const canTake=movedVictim&&new Chess(best.fen).moves({verbose:true}).some(m=>m.to===best.to&&m.captured);
-   if(movedVictim&&!canTake)return `${best.san} уводит ${pieces[best.piece]} с ${best.from} на ${best.to}, где её нельзя сразу взять. После ${played.san} соперник мог забрать её ходом ${reply.san}.`;
+   if(movedVictim&&!canTake)return `${best.san} уводит ${pieces[best.piece]} с ${best.from} на ${best.to}, где соперник не может сразу взять эту фигуру. После ${played.san} соперник мог забрать эту фигуру ходом ${reply.san}.`;
    if(movedVictim&&canTake)return `После ${best.san} фигуру всё ещё можно сразу взять. Движок предпочитает этот ход, но конкретное преимущество пока не удалось подтвердить.`;
    return `${best.san} не допускает конкретного взятия ${reply.san}, доступного после вашего ${played.san}.`;
   }
@@ -44,12 +45,13 @@ export function reviewMove(game,index){
  const grade=loss===null?'Недостаточно данных':loss>=200?'Грубая ошибка':loss>=100?'Ошибка':loss>=60?'Неточность':best?.uci===played?.uci?'Лучший по расчёту':'Без заметной ошибки';
  let reason=loss===null?'Оценки этой позиции недостаточно для вывода об ошибке.':loss<60?'В текущем расчёте ход не привёл к заметной потере оценки.':`После ${played.san} оценка вашей позиции ухудшилась примерно на ${(loss/100).toFixed(1)} пешки. Конкретную тактическую причину пока не удалось определить.`;
  if(loss>=60){
-  if(reply?.mate)reason=`После ${played.san} соперник может поставить мат одним ходом — ${reply.san}.`;
+  if(reply?.mate)reason=`После ${played.san} соперник может поставить мат одним ходом — ${reply.san}. ${describeMove(game.positions[index+1],reply.from+reply.to+(reply.promotion||''))}`;
   else if(after.mate!=null&&after.mate*side<0)reason=`После ${played.san} движок находит форсированный мат вашему королю.`;
   else if(before.mate!=null&&before.mate*side>0&&!(after.mate!=null&&after.mate*side>0))reason=`Ход ${played.san} упускает найденный движком форсированный мат.`;
   else if(reply?.captured)reason=`После ${played.san} сопернику доступно взятие: ${reply.san} забирает ${pieces[reply.captured]} на ${reply.to}. Оценка вашей позиции ухудшается.`;
-  else if(best?.captured)reason=`В исходной позиции движок предпочитает ${best.san} — взятие ${pieces[best.captured]} на ${best.to}. После сыгранного ${played.san} оценка хуже.`;
+  else if(best?.captured)reason=`В исходной позиции движок предпочитает ${best.san} — можно взять ${pieces[best.captured]} на ${best.to}. После сыгранного ${played.san} оценка хуже.`;
  }
  const better=explainBetter(game,index,best,reply,loss);
- return {loss,grade,best,reason,better};
+ const playedStory=moveStory(game.positions[index],played.uci),bestStory=best?moveStory(game.positions[index],best.uci):null;
+ return {loss,grade,best,reason,better,playedText:playedStory.action,playedIdea:playedStory.idea,bestText:bestStory?.action,bestIdea:bestStory?.idea,bestThreats:bestStory?.threats||[]};
 }

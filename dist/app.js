@@ -4,7 +4,7 @@ import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {OrientedSequence} from './oriented-sequence.js';
 import {RecognitionResume} from './recognition-resume.js';
 import {detectBoard} from './board-vision.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.5.0',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.6.0',BUILD_ID='source';
 let games=[],game,selected=0,boardView='played',baseFen='',actualIndex=0,busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null,resumeCancel=null;
 const moveReviews=new WeakMap();
 function moveInfo(i){let cache=moveReviews.get(game);if(!cache){cache=new Map();moveReviews.set(game,cache)}if(!cache.has(i))cache.set(i,reviewMove(game,i));return cache.get(i)}
@@ -31,9 +31,9 @@ function render(){
 
 function detailCard(i){
  const r=moveInfo(i),played=game.moves[i],own=mine(i);
- if(!own)return '<article class="move-detail" id="move-detail"><h3>Ход соперника: '+esc(played.san)+'</h3></article>';
+ if(!own)return '<article class="move-detail" id="move-detail"><h3>Ход соперника: '+esc(played.san)+'</h3><p class="move-action">'+esc(r.playedText)+'</p></article>';
  const correction=r.loss>=60&&r.best&&r.best.uci!==played.uci;
- return `<article class="insight-card" id="move-detail"><div class="insight-kicker"><span>ВАШ ХОД ${Math.floor(i/2)+1}</span><span class="classification">${esc(r.grade)}</span></div><h3>Вы сыграли ${esc(played.san)}</h3><p><b>${r.loss>=60?'Почему ход хуже':'Оценка хода'}</b><br>${esc(r.reason)}</p>${correction?`<h3 class="better-title">Лучше ${esc(r.best.san)}</h3><p><b>Почему этот ход сильнее</b><br>${esc(r.better)}</p><div class="line-switch"><button data-board-view="played" class="${boardView==='played'?'active':''}">Мой ход ${esc(played.san)}</button><button data-board-view="better" class="${boardView==='better'?'active':''}">Лучший ход ${esc(r.best.san)}</button></div>`:''}</article>`;
+ return `<article class="insight-card" id="move-detail"><div class="insight-kicker"><span>ВАШ ХОД ${Math.floor(i/2)+1}</span><span class="classification ${r.loss>=60?'grade-bad':r.loss===null?'grade-neutral':'grade-good'}">${esc(r.grade)}</span></div><h3>Вы сыграли ${esc(played.san)}</h3><p class="move-action">${esc(r.playedText)}</p>${r.playedIdea?`<p class="move-idea">${esc(r.playedIdea)}</p>`:''}<p><b>${r.loss>=60?'Почему ход хуже':'Оценка хода'}</b><br>${esc(r.reason)}</p>${correction?`<h3 class="better-title">Лучше ${esc(r.best.san)}</h3><p class="move-action">${esc(r.bestText)}</p>${r.bestIdea?`<p class="move-idea">${esc(r.bestIdea)}</p>`:''}<p><b>Почему этот ход сильнее</b><br>${esc(r.better)}</p><div class="line-switch"><button data-board-view="played" class="${boardView==='played'?'active':''}">Мой ход ${esc(played.san)}</button><button data-board-view="better" class="${boardView==='better'?'active':''}">Лучший ход ${esc(r.best.san)}</button></div>`:''}</article>`;
 }
 function bindComparison(){
  $$('[data-board-view]').forEach(b=>b.onclick=()=>{boardView=b.dataset.boardView;render()});
@@ -58,15 +58,16 @@ function prepareBoard(){
 }
 function renderBoard(){
  const i=actualIndex-1,r=i>=0?moveInfo(i):null,flipped=game.color==='black',b=new Chess(baseFen),lastMove=boardView==='better'&&mine(i)&&r?.loss>=60?r.best?.uci:game.moves[i]?.uci;
+ const bestShown=boardView==='better'&&mine(i)&&r?.loss>=60&&!!r.best;$('#board-wrap').classList.toggle('showing-best',bestShown);
  let html='';for(let r=0;r<8;r++)for(let c=0;c<8;c++){
   let file=flipped?7-c:c,rank=flipped?r:7-r,sq='abcdefgh'[file]+(rank+1),p=b.get(sq);
-  html+=`<div class="square ${(r+c)%2?'dark':''} ${lastMove&&(lastMove.slice(0,2)===sq||lastMove.slice(2,4)===sq)?'highlight':''}" data-square="${sq}" aria-label="${sq}${p?' '+p.color+p.type:''}">${c===0?`<span class="rank">${rank+1}</span>`:''}${r===7?`<span class="file">${'abcdefgh'[file]}</span>`:''}${p?`<img src="pieces/${p.color}${p.type}.svg" alt="" draggable="false">`:''}</div>`
+  html+=`<div class="square ${(r+c)%2?'dark':''} ${lastMove&&(lastMove.slice(0,2)===sq||lastMove.slice(2,4)===sq)?bestShown?(lastMove.slice(2,4)===sq?'best-to':'best-from'):'highlight':''} ${bestShown&&moveInfo(i).bestThreats.some(t=>t.square===sq)?'threat-square':''}" data-square="${sq}" aria-label="${sq}${p?' '+p.color+p.type:''}">${c===0?`<span class="rank">${rank+1}</span>`:''}${r===7?`<span class="file">${'abcdefgh'[file]}</span>`:''}${p?`<img src="pieces/${p.color}${p.type}.svg" alt="" draggable="false">`:''}</div>`
  }$('#board').innerHTML=html;
  $('#top-player').textContent=flipped?'Белые':'Чёрные';$('#bottom-player').textContent=flipped?'Чёрные':'Белые';
  $('#bottom-player').textContent+=(flipped===(game.color==='black'))?' · вы':' · соперник';$('#top-player').textContent+=(flipped===(game.color==='black'))?' · соперник':' · вы';
- $('#eval-label').textContent='';
+ $('#eval-label').hidden=!bestShown;$('#eval-label').textContent=bestShown?'✓ Лучший ход':'';
  const label=i>=0?moveLabel(i):'';
- $('#position-label').textContent=boardView==='better'&&mine(i)&&r?.loss>=60&&r.best?`Вместо ${label}: ${r.best.san} · только один ход`:i>=0?`Партия · после ${label}`:'Начальная позиция';
+ $('#position-label').textContent=boardView==='better'&&mine(i)&&r?.loss>=60&&r.best?`Лучший ход: ${r.bestText} (${r.best.san}) · только один ход`:i>=0?`Партия · после ${label}`:'Начальная позиция';
  const pos=actualIndex;
  $('#prev').disabled=$('#first').disabled=pos===0;$('#next').disabled=$('#last').disabled=pos>=game.moves.length;
 }
@@ -229,4 +230,4 @@ $('#import-start').onclick=async()=>{
 };
 function renderEmpty(){$('#game-title').textContent='Добавьте партию, чтобы начать';$('#game-label').textContent='РАЗБОР ПАРТИИ';$('#opening').textContent='Загрузите запись экрана или PGN';$('#fragment').textContent='Партии хранятся на этом устройстве';$('#board').innerHTML='';$('#tab-content').innerHTML='<article class="insight-card"><h3>Начните с вашей партии</h3><p>Добавьте запись экрана или PGN кнопкой «＋ Партия».</p></article>';$('#games').innerHTML='';$('#count').textContent='0';$('#eval-label').textContent='—';$('#position-label').textContent='Здесь появится доска с вашей партией';$('#first').disabled=$('#prev').disabled=$('#next').disabled=$('#last').disabled=true}
 async function boot(){try{const samples=await fetch('./samples.json').then(r=>r.json());let saved=[];try{saved=JSON.parse(localStorage.getItem('atelier-games-v1')||'[]').filter(g=>g.moves?.length&&g.positions?.length&&g.evals?.length)}catch{}games=[...saved,...samples];if(games.length)selectGame(games[0]);else renderEmpty()}catch(e){$('#game-title').textContent='Не удалось загрузить партии';$('#tab-content').innerHTML='<p>Проверьте интернет и обновите страницу.</p>';console.error(e)}}
-boot();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js?v=0.5.0').catch(()=>{});
+boot();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js?v=0.6.0').catch(()=>{});
