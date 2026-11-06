@@ -1,3 +1,5 @@
+import {comparisonFor} from './compare-moves.js';
+import {tacticalConcepts} from './tactical-concepts.js';
 import {positionalComparison} from './position-language.js';
 import {Chess} from './chess.js';
 import {describeMove,moveStory} from './move-language.js';
@@ -30,6 +32,7 @@ function explainBetter(game,index,best,reply,loss){
  }
  let playedMove=null;try{playedMove=new Chess(game.positions[index]).move(played.uci)}catch{}
  if(best.captured&&!(playedMove?.captured&&playedMove.to===best.to))return `${best.san} использует возможность сразу взять ${pieces[best.captured]} на ${best.to}. Ход ${played.san} это взятие не выполняет; движок оценивает позицию после ${best.san} выше. Само взятие не обязательно означает чистый выигрыш материала.`;
+ const oldMotifs=new Set(tacticalConcepts(game.positions[index],played.uci).map(x=>x.key));const motifs=tacticalConcepts(game.positions[index],best.uci).filter(x=>!oldMotifs.has(x.key));if(motifs.length)return motifs[0].text+' В сыгранном ходе такого нового ограничения нет. Это конкретное различие ходов; вся разница оценки может включать и другие факторы.';
  const positional=positionalComparison(game.positions[index],played.uci,best.uci);
  if(positional)return positional.better+' В отличие от сыгранного хода, этот вариант решает перечисленные задачи. Это позиционные преимущества, а не гарантия выигрыша.';
  const before=game.evals[index]?.[0],after=game.evals[index+1]?.[0];
@@ -38,11 +41,11 @@ function explainBetter(game,index,best,reply,loss){
 }
 
 export function reviewMove(game,index){
- const before=game.evals[index]?.[0],after=game.evals[index+1]?.[0],played=game.moves[index],side=index%2===0?1:-1;
+ const comparison=comparisonFor(game,index),before=comparison?.best||game.evals[index]?.[0],after=comparison?.played||game.evals[index+1]?.[0],played=game.moves[index],side=index%2===0?1:-1;
  const available=Number.isFinite(before?.cp)&&Number.isFinite(after?.cp);
  let best=null,reply=null;
  try{const b=new Chess(game.positions[index]),m=b.move(before?.line?.[0]?.uci);if(m)best={...m,uci:m.from+m.to+(m.promotion||''),fen:b.fen()};}catch{}
- try{const b=new Chess(game.positions[index+1]),m=b.move(after?.line?.[0]?.uci);if(m)reply={...m,mate:b.isCheckmate(),check:b.isCheck()};}catch{}
+ try{const b=new Chess(game.positions[index+1]),m=b.move(game.evals[index+1]?.[0]?.line?.[0]?.uci);if(m)reply={...m,mate:b.isCheckmate(),check:b.isCheck()};}catch{}
  // Independent short searches can disagree slightly; the engine's own best move is not an error.
  const loss=available?(best?.uci===played?.uci?0:Math.max(0,(before.cp-after.cp)*side)):null;
  const grade=loss===null?'Недостаточно данных':loss>=200?'Грубая ошибка':loss>=100?'Ошибка':loss>=60?'Неточность':best?.uci===played?.uci?'Лучший по расчёту':'Без заметной ошибки';
@@ -57,5 +60,5 @@ export function reviewMove(game,index){
  if(loss>=60&&best&&reason.includes('Конкретную тактическую причину')){const positional=positionalComparison(game.positions[index],played.uci,best.uci);if(positional)reason=positional.reason;}
  const better=explainBetter(game,index,best,reply,loss);
  const playedStory=moveStory(game.positions[index],played.uci),bestStory=best?moveStory(game.positions[index],best.uci):null;
- return {loss,grade,best,reason,better,playedText:playedStory.action,playedIdea:playedStory.idea,bestText:bestStory?.action,bestIdea:bestStory?.idea,bestThreats:bestStory?.threats||[]};
+ return {loss,grade,best,reason,better,comparisonVerified:!!comparison,playedText:playedStory.action,playedIdea:playedStory.idea,bestText:bestStory?.action,bestIdea:bestStory?.idea,bestThreats:bestStory?.threats||[]};
 }

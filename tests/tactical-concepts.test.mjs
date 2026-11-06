@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {tacticalConcepts} from '../dist/tactical-concepts.js';import {moveVisuals,arrowsSvg} from '../dist/move-visuals.js';
+test('bishop move creates a specific absolute pin',()=>{const p=tacticalConcepts('4k3/8/2n5/8/B7/8/8/7K w - - 0 1','a4b5').find(x=>x.kind==='pin');assert.equal(p.to,'c6');assert.equal(p.king,'e8');assert.match(p.text,/вдоль линии/)});
+test('unrelated move does not claim an already existing pin',()=>{assert.ok(!tacticalConcepts('4k3/8/2n5/1B6/8/8/7P/7K w - - 0 1','h2h3').some(x=>x.kind==='pin'))});
+test('king behind another blocker is not pinned',()=>{assert.ok(!tacticalConcepts('4k3/3p4/2n5/8/B7/8/8/7K w - - 0 1','a4b5').some(x=>x.kind==='pin'))});
+test('knight fork names both attacked targets without promising material',()=>{const p=tacticalConcepts('7k/3q4/4r3/8/8/1N6/8/7K w - - 0 1','b3c5').find(x=>x.kind==='fork');assert.ok(p);assert.match(p.text,/выигрыш материала ещё не доказан/)});
+test('pin explanation has its own selectable arrow group',()=>{const v=moveVisuals('4k3/8/2n5/8/B7/8/8/7K w - - 0 1','a4b5');assert.ok(v.some(x=>x.from==='b5'&&x.to==='c6'&&x.text.includes('Связка')));const s=arrowsSvg(v);assert.equal((s.match(/data-visual-arrow=/g)||[]).length,v.length)});
