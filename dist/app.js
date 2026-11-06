@@ -9,7 +9,7 @@ import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {OrientedSequence} from './oriented-sequence.js';
 import {RecognitionResume} from './recognition-resume.js';
 import {detectBoard} from './board-vision.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.1',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.2',BUILD_ID='source';
 let games=[],game,selected=0,boardView='played',baseFen='',actualIndex=0,busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null,resumeCancel=null;
 const moveReviews=new WeakMap();
 function moveInfo(i,source=game){let cache=moveReviews.get(source);if(!cache){cache=new Map();moveReviews.set(source,cache)}if(!cache.has(i))cache.set(i,reviewMove(source,i));return cache.get(i)}

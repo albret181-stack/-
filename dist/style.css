@@ -48,17 +48,13 @@ header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;padding-to
 
 #personal-coach{margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}#personal-coach>summary{cursor:pointer;font-weight:600;padding:8px 0}#personal-coach-body{padding:4px 0}#personal-coach-body ul{padding-left:20px}#personal-coach-body li p{margin:5px 0 12px}
 
-/* Give explanations the remaining desktop space; let the page scroll as one. */
-header,main{max-width:1440px}
-.review-grid{grid-template-columns:minmax(280px,440px) minmax(0,1fr);gap:32px}
-.board-column{max-width:440px}
-.insight-column{padding-top:24px;align-self:start}
+/* Keep the board central and let explanations use a wide, natural-height row. */
+header,main{max-width:1120px}
+.review-grid{display:flex;flex-direction:column;align-items:center;gap:18px}
+.board-column{width:100%;max-width:480px;margin-inline:auto}
+.insight-column{width:100%;max-width:900px;padding-top:0;align-self:center}
 #tab-content,.insight-card,.move-detail{height:auto;max-height:none;overflow:visible;min-width:0}
-@media(max-width:960px){
- .review-grid{display:flex;flex-direction:column;gap:16px}
- .board-column{max-width:440px}
- .insight-column{width:100%;padding-top:0}
-}
 @media(max-width:680px){
+ .review-grid{gap:12px}
  .board-column{max-width:min(100%,max(240px,calc(100svh - 590px)))}
 }
