@@ -48,13 +48,17 @@ header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;padding-to
 
 #personal-coach{margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}#personal-coach>summary{cursor:pointer;font-weight:600;padding:8px 0}#personal-coach-body{padding:4px 0}#personal-coach-body ul{padding-left:20px}#personal-coach-body li p{margin:5px 0 12px}
 
-/* Keep the board central and let explanations use a wide, natural-height row. */
-header,main{max-width:1120px}
-.review-grid{display:flex;flex-direction:column;align-items:center;gap:18px}
-.board-column{width:100%;max-width:480px;margin-inline:auto}
-.insight-column{width:100%;max-width:900px;padding-top:0;align-self:center}
+/* Center the complete review, keeping board and explanation level. */
+header,main{max-width:1200px}
+.review-grid{display:grid;grid-template-columns:minmax(0,480px) minmax(0,1fr);align-items:start;gap:28px;max-width:1120px;margin-inline:auto}
+.board-column{width:100%;max-width:480px;margin:0}
+.insight-column{width:100%;max-width:none;padding-top:24px;align-self:start}
 #tab-content,.insight-card,.move-detail{height:auto;max-height:none;overflow:visible;min-width:0}
+@media(max-width:800px){
+ .review-grid{display:flex;flex-direction:column;align-items:center;gap:12px}
+ .board-column{margin-inline:auto}
+ .insight-column{padding-top:0}
+}
 @media(max-width:680px){
- .review-grid{gap:12px}
  .board-column{max-width:min(100%,max(240px,calc(100svh - 590px)))}
 }
