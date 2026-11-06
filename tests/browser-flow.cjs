@@ -211,6 +211,13 @@ const fs=require('node:fs/promises');
  assert.equal(await pp.locator('#pgn-text').inputValue(),'1. e4 e5 2. Nope');assert.equal(await pp.evaluate(()=>JSON.parse(localStorage.getItem('atelier-games-v1')||'[]').length),0);
  await pp.locator('#pgn-text').fill('[White "Synthetic White"]\n[Black "Synthetic Black"]\n[Result "0-1"]\n\n1. f3 e5 2. g4 Qh4# 0-1');await pp.locator('#pgn-side').selectOption('black');await pp.locator('#import-start').click();await pp.waitForFunction(()=>JSON.parse(localStorage.getItem('atelier-games-v1')||'[]').length===1);
  const pasted=await pp.evaluate(()=>JSON.parse(localStorage.getItem('atelier-games-v1'))[0]);assert.equal(pasted.moves.length,4);assert.equal(pasted.color,'black');assert.equal(pasted.title,'Synthetic White — Synthetic Black');assert.equal(pasted.result,'0-1');assert.equal(pasted.positions.length,5);
+ { await pp.locator('#game-library').evaluate(e=>e.open=true);
+ const beforeBackup=await pp.evaluate(()=>localStorage.getItem('atelier-games-v1'));
+ const backupEvent=pp.waitForEvent('download');await pp.locator('#backup-export').click();const backupDownload=await backupEvent;
+ const exported=JSON.parse(await fs.readFile(await backupDownload.path(),'utf8'));
+ assert.equal(exported.format,'chess-atelier-learning');assert.equal(exported.version,1);assert.deepEqual(exported.games,JSON.parse(beforeBackup));
+ assert.equal(await pp.evaluate(()=>localStorage.getItem('atelier-games-v1')),beforeBackup);
+ console.log('PASS: full learning backup downloads without altering stored games'); }
  console.log('PASS: pasted PGN validation, metadata, black-side analysis and persistence');await pc.close();
  // Production module worker: an empty board is not a playable game.
  const c3=await browser.newContext({serviceWorkers:'block'}),p3=await c3.newPage();
