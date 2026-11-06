@@ -1,3 +1,4 @@
+import {practiceQueue} from './practice-memory.js';
 import {Chess} from './chess.js';
 import {reviewMove} from './move-review.js';
 import {tacticalConcepts} from './tactical-concepts.js';
@@ -15,6 +16,6 @@ export function gameLesson(game,reviewAt=i=>reviewMove(game,i)){
  errors.push({index:i,loss:r.loss,theme,title:themes[theme].title,tip:themes[theme].tip,reason:r.reason,best:r.best,trainable:valid});}
  errors.sort((a,b)=>b.loss-a.loss||a.index-b.index);
  const repeated=Object.entries(counts).filter(([key,n])=>key!=='calculation'&&n>=2).sort((a,b)=>b[1]-a[1]);const focus=repeated[0]?.[0]||errors[0]?.theme||'calculation';
- return {reviewed,verified,totalErrors:errors.length,highlights:errors.slice(0,3),queue:errors.filter(x=>x.trainable).slice(0,3),repeated:repeated.map(([key,count])=>({key,count,title:themes[key].title})),tip:themes[focus].tip};
+ return {reviewed,verified,totalErrors:errors.length,highlights:errors.slice(0,3),exercises:errors.filter(x=>x.trainable),queue:practiceQueue(game,errors.filter(x=>x.trainable)),repeated:repeated.map(([key,count])=>({key,count,title:themes[key].title})),tip:themes[focus].tip};
 }
 export function practiceOutcome(pair,color){const sign=color==='black'?-1:1;if(!Number.isFinite(pair?.best?.cp)||!Number.isFinite(pair?.played?.cp))return {accepted:false,unknown:true,text:'Недостаточно данных для проверки. Попробуйте ещё раз.'};const gap=Math.max(0,(pair.best.cp-pair.played.cp)*sign);const bothMate=pair.best.mate*sign>0&&pair.played.mate*sign>0;return {accepted:bothMate||gap<=35,gap,text:bothMate?'Оба варианта сохраняют найденный движком мат.':gap<=35?'Хорошая альтернатива: в одинаковых условиях расчёта она близка к варианту разбора. Это ограниченный расчёт, а не доказательство абсолютной точности.':'В текущем сравнении вариант разбора сильнее. Проверьте, какие шахи, взятия или угрозы ваш ход оставляет сопернику.'};}
