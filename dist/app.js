@@ -1,3 +1,4 @@
+import {learningBackup} from './backup.js';
 import {personalCoach} from './personal-coach.js';
 import {practiceQueue,matchingPractice,practiceDueAt,recordPractice,practiceReply} from './practice-memory.js';
 import {gameLesson,practiceOutcome} from './learning.js';
@@ -9,7 +10,7 @@ import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {OrientedSequence} from './oriented-sequence.js';
 import {RecognitionResume} from './recognition-resume.js';
 import {detectBoard} from './board-vision.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.3',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.4',BUILD_ID='source';
 let games=[],game,selected=0,boardView='played',baseFen='',actualIndex=0,busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null,resumeCancel=null;
 const moveReviews=new WeakMap();
 function moveInfo(i,source=game){let cache=moveReviews.get(source);if(!cache){cache=new Map();moveReviews.set(source,cache)}if(!cache.has(i))cache.set(i,reviewMove(source,i));return cache.get(i)}
@@ -120,6 +121,7 @@ $('#prev').onclick=()=>advance(-1);$('#next').onclick=()=>advance(1);$('#first')
 $$('dialog .close').forEach(b=>b.onclick=()=>{if(b.closest('dialog').id==='import-dialog'&&busy){cancelled=true;recognitionDecision?.(false);return}b.closest('dialog').close()});
 $('#import-dialog').addEventListener('cancel',e=>{if(busy){e.preventDefault();cancelled=true;recognitionDecision?.(false)}});
 $$('.upload-trigger').forEach(b=>b.onclick=()=>{if(!busy)$('#import-dialog').showModal()});
+$('#backup-export').onclick=()=>{if(busy){toast('Дождитесь завершения расчёта, чтобы сохранить полную копию.');return}try{download(learningBackup(games,{appVersion:VERSION}),'chess-atelier-learning-'+new Date().toISOString().slice(0,10)+'.json','application/json');toast('Копия скачана: партии, оценки и прогресс. Восстановление появится в следующем обновлении.')}catch(e){toast(e.message)}};
 $('#export').onclick=()=>{const b=new Chess();game.moves.forEach(m=>b.move(m.uci));download(b.pgn(),'party.pgn','application/x-chess-pgn')};
 function download(data,name,type){const u=URL.createObjectURL(new Blob([data],{type})),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
 $('#about').onclick=()=>info('Разбор ошибок',`<p>Приложение разбирает ходы стороны снизу записи. Цвет и ориентация видео определяются автоматически. Для PGN выберите свою сторону при добавлении партии.</p><p>У каждой ошибки — сыгранный ход, причина ухудшения и один более сильный ход. Длинные варианты не строятся. Если конкретная причина не установлена, приложение сообщает об этом.</p><p>Видео и партии обрабатываются на устройстве. Для установки: Safari → «Поделиться» → «На экран Домой». Сохраняйте важные партии в PGN.</p>`);
