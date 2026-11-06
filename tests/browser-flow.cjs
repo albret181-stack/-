@@ -213,7 +213,7 @@ const fs=require('node:fs/promises');
  const pasted=await pp.evaluate(()=>JSON.parse(localStorage.getItem('atelier-games-v1'))[0]);assert.equal(pasted.moves.length,4);assert.equal(pasted.color,'black');assert.equal(pasted.title,'Synthetic White — Synthetic Black');assert.equal(pasted.result,'0-1');assert.equal(pasted.positions.length,5);
  await pp.locator('#game-library').evaluate(e=>e.open=true);
  const beforeBackup=await pp.evaluate(()=>localStorage.getItem('atelier-games-v1'));
- const downloaded=pp.waitForEvent('download');await pp.locator('#backup-export').click();const backupDownload=await downloaded;
+ const backupEvent=pp.waitForEvent('download');await pp.locator('#backup-export').click();const backupDownload=await backupEvent;
  const exported=JSON.parse(await fs.readFile(await backupDownload.path(),'utf8'));
  assert.equal(exported.format,'chess-atelier-learning');assert.equal(exported.version,1);assert.deepEqual(exported.games,JSON.parse(beforeBackup));
  assert.equal(await pp.evaluate(()=>localStorage.getItem('atelier-games-v1')),beforeBackup);
