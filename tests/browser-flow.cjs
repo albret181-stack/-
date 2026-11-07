@@ -200,6 +200,7 @@ const fs=require('node:fs/promises');
  await reportPage.locator('#lesson-summary > summary').click();
  await reportPage.locator('#personal-coach > summary').click();
  const report=reportPage.locator('#personal-coach-body');
+ await report.getByRole('button',{name:/Synthetic second mate/}).waitFor();
  assert.match(await report.innerText(),/2 из 2 разобранных партий/);
  assert.match(await report.innerText(),/Партий без достаточного разбора: 1/);
  assert.match(await report.innerText(),/На следующую игру/);
