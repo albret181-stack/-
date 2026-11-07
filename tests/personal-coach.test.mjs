@@ -22,3 +22,23 @@ test('report picks the strongest example per game and separates unknown causes',
  assert.equal(result.repeated[0].count,3);
  assert.deepEqual(result.repeated[0].examples.map(e=>[e.sourceGame.id,e.reason]),[['a','strongest'],['b','second game']]);
 });
+test('theme practice selects due positions from the leading theme and deduplicates its own pool',()=>{
+ const a=game('a',['e4','e5']),b=game('b',['d4','d5']),c=game('c',['e4','c5']);
+ a.training={0:recordPractice(null,{fen:a.positions[0],bestUci:'d2d4'},'solved',{now:100})};
+ const report=now=>personalCoach([a,b,c],g=>{
+  const main={...lesson(g).exercises[0],theme:'king',best:{uci:g===b?'e2e4':'d2d4'}};
+  return {...lesson(g),exercises:[main,{...main,theme:'material',loss:900}]};
+ },now);
+ assert.deepEqual(report(200).topicQueue.map(t=>[t.sourceGame.id,t.theme]),[['b','king']]);
+ const later=report(100+86400000);
+ assert.deepEqual(later.topicQueue.map(t=>[t.sourceGame.id,t.theme]),[['b','king'],['a','king']]);
+ assert.ok(later.queue.some(t=>t.theme==='material'));
+});
+test('theme practice allows early repeat and stays unavailable when the leading theme has no playable position',()=>{
+ const a=game('a'),b=game('b',['e4','c5']);
+ a.training={0:recordPractice(null,{fen:a.positions[0],bestUci:'d2d4'},'solved',{now:100})};
+ const result=personalCoach([a,b],g=>({...lesson(g),exercises:g===a?[{...lesson(g).exercises[0],theme:'king'}]:[]}),200);
+ assert.equal(result.topicQueue.length,1);
+ assert.equal(result.topicQueue[0].progress.solved,true);
+ assert.deepEqual(personalCoach([a,b],g=>({...lesson(g),exercises:[]}),200).topicQueue,[]);
+});
