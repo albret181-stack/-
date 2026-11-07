@@ -187,6 +187,30 @@ const fs=require('node:fs/promises');
  await hp.locator('#start-personal-training').click();assert.equal(await hp.locator('#game-title').innerText(),'Synthetic black lesson');assert.equal(await hp.locator('[data-practice-square]').first().getAttribute('data-practice-square'),'h1');await hp.locator('#exit-training').click();assert.equal(await hp.locator('#game-title').innerText(),'Synthetic mistake');assert.match(await hp.locator('#move-detail').innerText(),/Вы сыграли g4/);
  await hp.locator('#start-personal-training').click();await hp.locator('[data-practice-square="e7"]').click();await hp.locator('[data-practice-square="e5"]').click();assert.match(await hp.locator('#practice-feedback').innerText(),/Верно/);await hp.locator('#practice-next').click();assert.equal(await hp.locator('#game-title').innerText(),'Synthetic mistake');assert.equal(await hp.locator('[data-practice-square]').first().getAttribute('data-practice-square'),'a8');await hp.locator('[data-practice-square="e2"]').click();await hp.locator('[data-practice-square="e4"]').click();await hp.locator('#practice-next').click();await hp.locator('#exit-training').click();assert.match(await hp.locator('#move-detail').innerText(),/Вы сыграли g4/);assert.equal(await hp.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const histories=await hp.evaluate(()=>JSON.parse(localStorage.getItem('atelier-games-v1')));assert.equal(histories[0].training[2].solved,true);assert.equal(histories[1].training[1].solved,true);assert.equal(histories[2].training,undefined);await hc.close();
  console.log('PASS: personal history, deduplication, cross-game practice, orientation, progress ownership and return');
+ // A history example opens the exact position in a different game.
+ const mateBoard=new Chess(),matePositions=[mateBoard.fen()],mateMoves=['f4','e5','g4','Qh4#'].map(san=>{
+  const move=mateBoard.move(san);matePositions.push(mateBoard.fen());return {uci:move.from+move.to,san:move.san};
+ });
+ const secondMate={...fixture,id:'history-mate-two',title:'Synthetic second mate',positions:matePositions,moves:mateMoves};
+ const pendingMate={...blackLesson,id:'history-pending',evals:[]};
+ const reportContext=await browser.newContext({serviceWorkers:'block',viewport:{width:320,height:667}});
+ const reportPage=await reportContext.newPage();
+ await reportContext.addInitScript(gs=>localStorage.setItem('atelier-games-v1',JSON.stringify(gs)),[fixture,secondMate,pendingMate]);
+ await reportPage.goto('http://127.0.0.1:8765');
+ await reportPage.locator('#lesson-summary > summary').click();
+ await reportPage.locator('#personal-coach > summary').click();
+ const report=reportPage.locator('#personal-coach-body');
+ await report.getByRole('button',{name:/Synthetic second mate/}).waitFor();
+ assert.match(await report.innerText(),/2 из 2 разобранных партий/);
+ assert.match(await report.innerText(),/Партий без достаточного разбора: 1/);
+ assert.match(await report.innerText(),/На следующую игру/);
+ assert.match(await report.innerText(),/мат одним ходом/);
+ assert.equal(await reportPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await report.getByRole('button',{name:/Synthetic second mate/}).click();
+ assert.equal(await reportPage.locator('#game-title').innerText(),'Synthetic second mate');
+ assert.match(await reportPage.locator('#move-detail').innerText(),/Вы сыграли g4/);
+ await reportContext.close();
+
  console.log('PASS: alternatives, promotion, repetition schedule and verified opponent reply with retry');
 
  // Deterministic regression: cancel while the final engine position is still running.

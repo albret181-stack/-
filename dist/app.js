@@ -11,7 +11,7 @@ import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {OrientedSequence} from './oriented-sequence.js';
 import {RecognitionResume} from './recognition-resume.js';
 import {detectBoard} from './board-vision.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.5',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.6',BUILD_ID='source';
 let games=[],game,selected=0,boardView='played',baseFen='',actualIndex=0,busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null,resumeCancel=null;
 const moveReviews=new WeakMap();
 function moveInfo(i,source=game){let cache=moveReviews.get(source);if(!cache){cache=new Map();moveReviews.set(source,cache)}if(!cache.has(i))cache.set(i,reviewMove(source,i));return cache.get(i)}
@@ -22,17 +22,36 @@ function loss(i){return moveInfo(i).loss??0}
 function severity(i){return moveInfo(i).grade}
 function mine(i){return i%2===(game.color==='white'?0:1)}
 function errors(){return game.moves.map((m,i)=>i).filter(i=>mine(i)&&loss(i)>=60)}
-function moveLabel(i){return `${Math.floor(i/2)+1}${i%2?'…':'.'} ${game.moves[i]?.san||''}`}
+function moveLabel(i,source=game){return `${Math.floor(i/2)+1}${i%2?'…':'.'} ${source.moves[i]?.san||''}`}
 function persist(){try{localStorage.setItem('atelier-games-v1',JSON.stringify(games.filter(g=>!g.id.startsWith('sample-'))))}catch{toast('Недостаточно места: экспортируйте партию в PGN.')}}
 const lessonCache=new WeakMap();let training=null;
 function lessonData(source=game){let data=lessonCache.get(source);if(!data){data=gameLesson(source,i=>moveInfo(i,source));lessonCache.set(source,data)}return data}
 function renderLessonSummary(){
  const coachWasOpen=!!$('#personal-coach')?.open;const box=$('#lesson-summary');box.hidden=!game||!!training;if(!game)return;const data=lessonData(),tasks=data.exercises||[],ready=practiceQueue(game,tasks),readyCount=tasks.filter(t=>practiceDueAt(matchingPractice(game,t))<=Date.now()).length,solved=tasks.filter(t=>matchingPractice(game,t)?.solved).length,nextAt=Math.min(...tasks.map(t=>practiceDueAt(matchingPractice(game,t))).filter(t=>t>Date.now()));
  $('#lesson-summary-body').innerHTML=`<p>Проверено ваших ходов: ${data.reviewed}. Сравнение в одинаковых условиях: ${data.verified}. Найдено моментов для разбора: ${data.totalErrors}.</p>${data.highlights.length?'<p><b>Главные моменты этой партии</b></p><ol>'+data.highlights.map(h=>'<li><button class="text-btn" data-lesson-move="'+h.index+'">'+esc(moveLabel(h.index))+' · '+esc(h.title)+'</button><p>'+esc(h.reason)+'</p></li>').join('')+'</ol>':'<p>В доступном расчёте заметных ошибок не найдено. Это не означает, что все ходы были идеальными.</p>'}${data.repeated.length?'<p><b>Повторилось в этой партии:</b> '+data.repeated.map(x=>esc(x.title)+' — '+x.count+' раза').join('; ')+'. Это наблюдение по этой партии, а не оценка вашего уровня.</p>':''}<p><b>Попробуйте в следующей игре:</b> ${esc(data.tip)}</p>${tasks.length?'<p>К повторению сейчас: '+readyCount+'. Решения сохранены: '+solved+' из '+tasks.length+'.</p>'+(readyCount===0&&Number.isFinite(nextAt)?'<p>Следующее повторение: '+new Date(nextAt).toLocaleString('ru-RU',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'})+'. Можно повторить и раньше.</p>':'')+'<button id="start-training" class="primary" '+(busy?'disabled':'')+'>'+ (ready.length?'Потренироваться · '+ready.length+' позиции':'Повторить сейчас')+'</button><p class="subtle">Сначала найдите исправление на доске. Затем получите объяснение. Законные альтернативы проверяются движком.</p>':''}`;
- $('#lesson-summary-body').insertAdjacentHTML('beforeend','<details id="personal-coach"><summary>Прогресс по всем партиям</summary><div id="personal-coach-body"></div></details>');$('#personal-coach').ontoggle=()=>{if($('#personal-coach').open&&!$('#personal-coach-body').hasChildNodes())renderPersonalCoach()};if(coachWasOpen){$('#personal-coach').open=true;renderPersonalCoach()}
+ $('#lesson-summary-body').insertAdjacentHTML('beforeend','<details id="personal-coach"><summary>Разбор всех партий</summary><div id="personal-coach-body"></div></details>');$('#personal-coach').ontoggle=()=>{if($('#personal-coach').open&&!$('#personal-coach-body').hasChildNodes())renderPersonalCoach()};if(coachWasOpen){$('#personal-coach').open=true;renderPersonalCoach()}
  $$('[data-lesson-move]').forEach(b=>b.onclick=()=>choosePosition(+b.dataset.lessonMove+1));if($('#start-training'))$('#start-training').onclick=beginTraining;
 }
-function renderPersonalCoach(){const p=personalCoach(games,lessonData);$('#personal-coach-body').innerHTML='<p>Партии с доступным разбором: '+p.gameCount+'. Проверено ваших ходов: '+p.reviewed+', из них уточнено: '+p.verified+'.</p>'+(p.repeated.length?'<p><b>Повторилось в разных партиях</b></p><ul>'+p.repeated.slice(0,3).map(t=>'<li><b>'+esc(t.title)+'</b> — '+t.count+' моментов в '+t.games+' партиях.<p>'+esc(t.tip)+'</p></li>').join('')+'</ul>':'<p>Пока недостаточно подтверждённых повторений в разных партиях. Новая партия поможет точнее выбрать учебную цель.</p>')+'<p>Уникальных учебных позиций: '+p.exerciseCount+'. К повторению сейчас: '+p.readyCount+'. Сохранено решений: '+p.solvedCount+'.</p>'+(p.duplicates?'<p class="subtle">Повторные копии одной партии объединены: '+p.duplicates+'.</p>':'')+(p.unavailable?'<p class="subtle">Не включены партии без достаточных данных: '+p.unavailable+'.</p>':'')+((p.queue.length||p.allQueue.length)?'<button id="start-personal-training" class="secondary" '+(busy?'disabled':'')+'>'+(p.queue.length?'Повторить из всех партий · '+p.queue.length+' позиции':'Повторить знакомые позиции сейчас')+'</button>':'')+'<p class="subtle">Это наблюдения по сохранённым партиям и решениям, а не оценка Elo и не доказательство роста уровня. Одинаковые учебные позиции не дублируются в тренировке.</p>';if($('#start-personal-training'))$('#start-personal-training').onclick=beginPersonalTraining;}
+function renderPersonalCoach(){
+ const p=personalCoach(games,lessonData),topics=p.repeated.slice(0,3),examples=topics.flatMap(t=>t.examples);
+ const topicCards=topics.map(t=>`<li><b>${esc(t.title)}</b> · ${t.games} из ${p.gameCount} разобранных партий · эпизодов: ${t.count}.
+  ${t.examples.map(e=>`<p><button type="button" class="text-btn" data-coach-example="${examples.indexOf(e)}" ${busy?'disabled':''}>${esc(e.sourceGame.title)} · ${esc(moveLabel(e.index,e.sourceGame))}</button><br>${esc(e.reason)}</p>`).join('')}</li>`).join('');
+ const recommendation=topics[0];
+ $('#personal-coach-body').innerHTML=`<p>Партии с доступным разбором: ${p.gameCount}. Проверено ваших ходов: ${p.reviewed}, из них уточнено: ${p.verified}.</p>
+  ${p.unavailable?`<p class="subtle">Партий без достаточного разбора: ${p.unavailable}.</p>`:''}
+  ${p.duplicates?`<p class="subtle">Повторные копии одной партии объединены: ${p.duplicates}.</p>`:''}
+  ${recommendation?`<p><b>На следующую игру</b> · ${esc(recommendation.tip)}</p><p><b>Повторилось в разных партиях</b></p><ol>${topicCards}</ol>`:'<p>Пока недостаточно подтверждённых повторений в разных партиях.</p>'}
+  ${p.unclassified?`<p class="subtle">Ошибки без установленной темы: ${p.unclassified}.</p>`:''}
+  <p>Уникальных учебных позиций: ${p.exerciseCount}. К повторению сейчас: ${p.readyCount}. Сохранено решений: ${p.solvedCount}.</p>
+  ${(p.queue.length||p.allQueue.length)?`<button id="start-personal-training" class="secondary" ${busy?'disabled':''}>${p.queue.length?'Повторить из всех партий · '+p.queue.length+' позиции':'Повторить знакомые позиции сейчас'}</button>`:''}`;
+ $$('[data-coach-example]').forEach(button=>button.onclick=()=>{
+  if(busy)return;
+  const {sourceGame,index}=examples[Number(button.dataset.coachExample)];
+  selectGame(sourceGame,index);
+  $('#move-detail')?.scrollIntoView({block:'nearest'});
+ });
+ if($('#start-personal-training'))$('#start-personal-training').onclick=beginPersonalTraining;
+}
 function beginPersonalTraining(){if(busy)return;const p=personalCoach(games,lessonData),queue=p.queue.length?p.queue:p.allQueue;if(!queue.length)return;startTrainingSession(queue,true)}
 function startTrainingSession(queue,global=false){training={queue,global,savedGame:game,cursor:0,selected:null,attempt:null,promotion:null,revealed:false,done:false,checking:false,feedback:'',hintUsed:false,counter:null,showCounter:false,savedIndex:actualIndex,savedView:boardView};render();}
 function beginTraining(){if(busy)return;const tasks=lessonData().exercises||[],queue=practiceQueue(game,tasks).length?practiceQueue(game,tasks):practiceQueue(game,tasks,Date.now(),true);if(queue.length)startTrainingSession(queue);}
@@ -58,7 +77,7 @@ function renderGames(){
  $('#count').textContent=games.length;$('#games').innerHTML=games.map((g,i)=>`<button class="game-card ${g===game?'selected':''}" data-game="${i}"><strong>${esc(g.title)}</strong><small>${g.moves.length} полуходов · ${g.color==='white'?'белые':'чёрные'} снизу</small></button>`).join('');
  $$('[data-game]').forEach(b=>b.onclick=()=>{if(busy)return;selectGame(games[+b.dataset.game]);$('#game-library').open=false});
 }
-function selectGame(g){training=null;$('#all-moves').open=$('#my-errors').open=false;game=g;selected=errors()[0]??game.moves.findIndex((_,i)=>mine(i));selected=Math.max(0,selected);boardView='played';actualIndex=selected+1;renderGames();render()}
+function selectGame(g,index){training=null;$('#all-moves').open=$('#my-errors').open=false;game=g;selected=index??errors()[0]??game.moves.findIndex((_,i)=>mine(i));selected=Math.max(0,selected);boardView='played';actualIndex=selected+1;renderGames();render()}
 function render(){
  if(training){renderTraining();return}$('#all-moves').hidden=$('#my-errors').hidden=false;$('#export').disabled=false;$('.recognition-note').hidden=false;renderLessonSummary();
  $('#game-title').textContent=game.title;$('#game-title').title=game.title;$('#game-label').textContent=game.id.startsWith('sample')?'ВАША ЗАПИСЬ · 3 НОЯБРЯ 2026':'ЛОКАЛЬНАЯ ПАРТИЯ';
