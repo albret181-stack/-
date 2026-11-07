@@ -209,6 +209,17 @@ const fs=require('node:fs/promises');
  await report.getByRole('button',{name:/Synthetic second mate/}).click();
  assert.equal(await reportPage.locator('#game-title').innerText(),'Synthetic second mate');
  assert.match(await reportPage.locator('#move-detail').innerText(),/Вы сыграли g4/);
+ await report.locator('#start-history-analysis').click();
+ await report.locator('#start-history-analysis').waitFor({state:'hidden'});
+ await reportPage.waitForFunction(()=>document.querySelector('#toast').textContent.includes('Досчитано партий: 1.'));
+ const completedHistory=await reportPage.evaluate(()=>JSON.parse(localStorage.getItem('atelier-games-v1')));
+ assert.deepEqual(completedHistory[0],fixture);
+ assert.deepEqual(completedHistory[1],secondMate);
+ assert.equal(completedHistory[2].evals.length,pendingMate.positions.length);
+ assert.ok(completedHistory[2].evals.every(rows=>Number.isFinite(rows[0].cp)));
+ assert.equal(await reportPage.locator('#game-title').innerText(),'Synthetic second mate');
+ assert.match(await reportPage.locator('#move-detail').innerText(),/Вы сыграли g4/);
+ assert.match(await report.innerText(),/Партии с доступным разбором: 3/);
  await reportContext.close();
 
  console.log('PASS: alternatives, promotion, repetition schedule and verified opponent reply with retry');
