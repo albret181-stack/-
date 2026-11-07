@@ -1,4 +1,4 @@
-import {kingSafetyDrill,kingSafetyReply} from './king-safety-drill.js';
+import {kingSafetyDrill,kingSafetyReply,matchesKingSafetyDrill} from './king-safety-drill.js';
 import {completeGameAnalysis,missingAnalysisPositions,saveCompletedAnalysis} from './history-analysis.js';
 import {learningBackup} from './backup.js';
 import {prepareBackupRestore} from './backup-restore.mjs';
@@ -13,7 +13,7 @@ import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {OrientedSequence} from './oriented-sequence.js';
 import {RecognitionResume} from './recognition-resume.js';
 import {detectBoard} from './board-vision.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.9',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.10',BUILD_ID='source';
 let games=[],game,selected=0,boardView='played',baseFen='',actualIndex=0,busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null,resumeCancel=null;
 const moveReviews=new WeakMap();
 function moveInfo(i,source=game){let cache=moveReviews.get(source);if(!cache){cache=new Map();moveReviews.set(source,cache)}if(!cache.has(i))cache.set(i,reviewMove(source,i));return cache.get(i)}
@@ -68,11 +68,7 @@ function renderPersonalCoach(){
   startTrainingSession(p.topicQueue,true,recommendation);
   $('.review-grid').scrollIntoView({block:'start'});
  };
- $('#start-king-safety').onclick=()=>{
-  if(busy||training)return;
-  startTrainingSession([kingSafetyDrill]);
-  $('.review-grid').scrollIntoView({block:'start'});
- };
+ $('#start-king-safety').onclick=startKingSafetyDrill;
  if($('#start-personal-training'))$('#start-personal-training').onclick=beginPersonalTraining;
 }
 async function runHistoryAnalysis(){
@@ -109,10 +105,15 @@ async function runHistoryAnalysis(){
  }
 }
 function beginPersonalTraining(){if(busy)return;const p=personalCoach(games,lessonData),queue=p.queue.length?p.queue:p.allQueue;if(!queue.length)return;startTrainingSession(queue,true)}
-function startTrainingSession(queue,global=false,topic=null){training={queue,global,topic,savedGame:game,cursor:0,selected:null,attempt:null,promotion:null,revealed:false,done:false,checking:false,feedback:'',hintUsed:false,counter:null,showCounter:false,savedIndex:actualIndex,savedView:boardView};render();}
+function startKingSafetyDrill(event){
+ if(busy||training)return;
+ startTrainingSession([kingSafetyDrill],false,null,event.currentTarget.id);
+ $('.review-grid').scrollIntoView({block:'start'});
+}
+function startTrainingSession(queue,global=false,topic=null,returnFocus=null){training={queue,global,topic,returnFocus,savedGame:game,cursor:0,selected:null,attempt:null,promotion:null,revealed:false,done:false,checking:false,feedback:'',hintUsed:false,counter:null,showCounter:false,savedIndex:actualIndex,savedView:boardView};render();}
 function beginTraining(){if(busy)return;const tasks=lessonData().exercises||[],queue=practiceQueue(game,tasks).length?practiceQueue(game,tasks):practiceQueue(game,tasks,Date.now(),true);if(queue.length)startTrainingSession(queue);}
 
-function endTraining(){if(!training)return;const saved=training;training=null;game=saved.savedGame||game;renderGames();actualIndex=saved.savedIndex;selected=actualIndex-1;boardView=saved.savedView;render();if(saved.queue[0].goal)$('#start-king-safety')?.focus();else if(saved.topic)$('#start-topic-training')?.focus();}
+function endTraining(){if(!training)return;const saved=training;training=null;game=saved.savedGame||game;renderGames();actualIndex=saved.savedIndex;selected=actualIndex-1;boardView=saved.savedView;render();if(saved.returnFocus)document.getElementById(saved.returnFocus)?.focus();else if(saved.topic)$('#start-topic-training')?.focus();}
 function practiceRecord(solved=false,revealed=false){const task=training.queue[training.cursor];if(task.goal)return;const identity={fen:game.positions[task.index],bestUci:task.best.uci};game.training={...game.training,[task.index]:recordPractice((Number(task.progress?.updatedAt)||0)>(Number(game.training?.[task.index]?.updatedAt)||0)?task.progress:game.training?.[task.index],identity,revealed?'revealed':solved?'solved':'failed',{hintUsed:training.hintUsed})};lessonCache.delete(game);persist();}
 
 function renderTraining(){
@@ -154,9 +155,12 @@ function detailCard(i){
  const r=moveInfo(i),played=game.moves[i],own=mine(i);
  if(!own)return '<article class="move-detail" id="move-detail"><h3>Ход соперника: '+esc(played.san)+'</h3><p class="move-action">'+esc(r.playedText)+'</p></article>';
  const correction=r.loss>=60&&r.best&&r.best.uci!==played.uci;
- return `<article class="insight-card" id="move-detail"><div class="insight-kicker"><span>ВАШ ХОД ${Math.floor(i/2)+1}</span><span class="classification ${r.loss>=60?'grade-bad':r.loss===null?'grade-neutral':'grade-good'}">${esc(r.grade)}</span></div><h3>Вы сыграли ${esc(played.san)}</h3><p class="move-action">${esc(r.playedText)}</p>${r.playedIdea?`<p class="move-idea">${esc(r.playedIdea)}</p>`:''}<p><b>${r.loss>=60?'Почему ход хуже':'Оценка хода'}</b><br>${esc(r.reason)}</p><p class="subtle">${r.comparisonVerified?'Оба хода перепроверены из одной позиции: с одинаковым лимитом поиска. Это уточнение, а не исчерпывающий анализ.':'Предварительная оценка: отдельные расчёты могут расходиться.'}</p><button class="secondary" data-recheck="${i}" ${busy?'disabled':''}>Уточнить оценку этого хода</button>${correction?`<h3 class="better-title">Лучше ${esc(r.best.san)}</h3><p class="move-action">${esc(r.bestText)}</p>${r.bestIdea?`<p class="move-idea">${esc(r.bestIdea)}</p>`:''}<p><b>Почему этот ход сильнее</b><br>${esc(r.better)}</p><div class="line-switch"><button data-board-view="played" class="${boardView==='played'?'active':''}">Мой ход ${esc(played.san)}</button><button data-board-view="better" class="${boardView==='better'?'active':''}">Лучший ход ${esc(r.best.san)}</button></div>`:''}</article>`;
+ const similar=correction&&matchesKingSafetyDrill(game.positions[i],played.uci,r.best.uci,game.evals[i+1]?.[0]?.line?.[0]?.uci);
+ return `<article class="insight-card" id="move-detail"><div class="insight-kicker"><span>ВАШ ХОД ${Math.floor(i/2)+1}</span><span class="classification ${r.loss>=60?'grade-bad':r.loss===null?'grade-neutral':'grade-good'}">${esc(r.grade)}</span></div><h3>Вы сыграли ${esc(played.san)}</h3><p class="move-action">${esc(r.playedText)}</p>${r.playedIdea?`<p class="move-idea">${esc(r.playedIdea)}</p>`:''}<p><b>${r.loss>=60?'Почему ход хуже':'Оценка хода'}</b><br>${esc(r.reason)}</p><p class="subtle">${r.comparisonVerified?'Оба хода перепроверены из одной позиции: с одинаковым лимитом поиска. Это уточнение, а не исчерпывающий анализ.':'Предварительная оценка: отдельные расчёты могут расходиться.'}</p><button class="secondary" data-recheck="${i}" ${busy?'disabled':''}>Уточнить оценку этого хода</button>${correction?`<h3 class="better-title">Лучше ${esc(r.best.san)}</h3><p class="move-action">${esc(r.bestText)}</p>${r.bestIdea?`<p class="move-idea">${esc(r.bestIdea)}</p>`:''}<p><b>Почему этот ход сильнее</b><br>${esc(r.better)}</p><div class="line-switch"><button data-board-view="played" class="${boardView==='played'?'active':''}">Мой ход ${esc(played.san)}</button><button data-board-view="better" class="${boardView==='better'?'active':''}">Лучший ход ${esc(r.best.san)}</button></div>`:''}${similar?`<p><button id="start-similar-position" class="secondary" ${busy?'disabled':''}>Потренировать защиту от мата по последней горизонтали</button></p>`:''}</article>`;
 }
 function bindComparison(){
+ const similar=$('#start-similar-position');
+ if(similar)similar.onclick=startKingSafetyDrill;
  $$('[data-recheck]').forEach(b=>b.onclick=()=>recheckMove(+b.dataset.recheck));
  $$('[data-board-view]').forEach(b=>b.onclick=()=>{boardView=b.dataset.boardView;render()});
 }

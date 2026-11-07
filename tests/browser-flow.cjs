@@ -260,6 +260,34 @@ const fs=require('node:fs/promises');
  assert.match(await reportPage.locator('#move-detail').innerText(),/Вы сыграли g4/);
  assert.equal(await reportPage.evaluate(()=>localStorage.getItem('atelier-games-v1')),savedBeforeDrill);
  await reportContext.close();
+ // A checked back-rank error links directly to a different teaching position.
+ const linkedBoard=new Chess('3r2k1/7p/8/8/8/R7/5PPP/6K1 w - - 0 1'),linkedPositions=[linkedBoard.fen()];
+ const linkedMove=linkedBoard.move('a3a4');
+ linkedPositions.push(linkedBoard.fen());
+ const linkedGame={id:'local-back-rank-error',title:'Synthetic back rank',color:'white',positions:linkedPositions,
+  moves:[{uci:'a3a4',san:linkedMove.san}],evals:[[{cp:0,line:[{uci:'h2h3'}]}],[{cp:-100000,mate:-1,line:[{uci:'d8d1'}]}]]};
+ const linkedContext=await browser.newContext({serviceWorkers:'block',viewport:{width:320,height:667}});
+ await linkedContext.addInitScript(gs=>localStorage.setItem('atelier-games-v1',JSON.stringify(gs)),[linkedGame,fixture]);
+ const linkedPage=await linkedContext.newPage();
+ await linkedPage.goto('http://127.0.0.1:8765');
+ const similarButton=linkedPage.locator('#start-similar-position');
+ await similarButton.waitFor();
+ assert.match(await linkedPage.locator('#move-detail').innerText(),/Rd1#/);
+ await linkedPage.locator('[data-board-view="better"]').click();
+ await similarButton.click();
+ assert.equal(await linkedPage.locator('[data-practice-square="a2"] img').count(),1);
+ assert.equal(await linkedPage.locator('[data-practice-square="a3"] img').count(),0);
+ await linkedPage.locator('#exit-training').click();
+ assert.equal(await linkedPage.locator('#game-title').innerText(),'Synthetic back rank');
+ assert.equal(await linkedPage.locator('[data-board-view="better"]').evaluate(el=>el.classList.contains('active')),true);
+ assert.equal(await linkedPage.evaluate(()=>document.activeElement.id),'start-similar-position');
+ assert.deepEqual(await linkedPage.evaluate(()=>JSON.parse(localStorage.getItem('atelier-games-v1'))),[linkedGame,fixture]);
+ await linkedPage.locator('#game-library summary').click();
+ await linkedPage.locator('[data-game="1"]').click();
+ assert.match(await linkedPage.locator('#move-detail').innerText(),/Qh4#/);
+ assert.equal(await similarButton.count(),0);
+ await linkedContext.close();
+
 
  console.log('PASS: alternatives, promotion, repetition schedule and verified opponent reply with retry');
 
