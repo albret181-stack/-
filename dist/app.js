@@ -1,3 +1,4 @@
+import {completeGameAnalysis,missingAnalysisPositions,saveCompletedAnalysis} from './history-analysis.js';
 import {learningBackup} from './backup.js';
 import {prepareBackupRestore} from './backup-restore.mjs';
 import {personalCoach} from './personal-coach.js';
@@ -11,7 +12,7 @@ import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {OrientedSequence} from './oriented-sequence.js';
 import {RecognitionResume} from './recognition-resume.js';
 import {detectBoard} from './board-vision.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.6',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.7',BUILD_ID='source';
 let games=[],game,selected=0,boardView='played',baseFen='',actualIndex=0,busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null,resumeCancel=null;
 const moveReviews=new WeakMap();
 function moveInfo(i,source=game){let cache=moveReviews.get(source);if(!cache){cache=new Map();moveReviews.set(source,cache)}if(!cache.has(i))cache.set(i,reviewMove(source,i));return cache.get(i)}
@@ -24,7 +25,7 @@ function mine(i){return i%2===(game.color==='white'?0:1)}
 function errors(){return game.moves.map((m,i)=>i).filter(i=>mine(i)&&loss(i)>=60)}
 function moveLabel(i,source=game){return `${Math.floor(i/2)+1}${i%2?'…':'.'} ${source.moves[i]?.san||''}`}
 function persist(){try{localStorage.setItem('atelier-games-v1',JSON.stringify(games.filter(g=>!g.id.startsWith('sample-'))))}catch{toast('Недостаточно места: экспортируйте партию в PGN.')}}
-const lessonCache=new WeakMap();let training=null;
+const lessonCache=new WeakMap();let training=null,historyRun=null;
 function lessonData(source=game){let data=lessonCache.get(source);if(!data){data=gameLesson(source,i=>moveInfo(i,source));lessonCache.set(source,data)}return data}
 function renderLessonSummary(){
  const coachWasOpen=!!$('#personal-coach')?.open;const box=$('#lesson-summary');box.hidden=!game||!!training;if(!game)return;const data=lessonData(),tasks=data.exercises||[],ready=practiceQueue(game,tasks),readyCount=tasks.filter(t=>practiceDueAt(matchingPractice(game,t))<=Date.now()).length,solved=tasks.filter(t=>matchingPractice(game,t)?.solved).length,nextAt=Math.min(...tasks.map(t=>practiceDueAt(matchingPractice(game,t))).filter(t=>t>Date.now()));
@@ -36,8 +37,10 @@ function renderPersonalCoach(){
  const p=personalCoach(games,lessonData),topics=p.repeated.slice(0,3),examples=topics.flatMap(t=>t.examples);
  const topicCards=topics.map(t=>`<li><b>${esc(t.title)}</b> · ${t.games} из ${p.gameCount} разобранных партий · эпизодов: ${t.count}.
   ${t.examples.map(e=>`<p><button type="button" class="text-btn" data-coach-example="${examples.indexOf(e)}" ${busy?'disabled':''}>${esc(e.sourceGame.title)} · ${esc(moveLabel(e.index,e.sourceGame))}</button><br>${esc(e.reason)}</p>`).join('')}</li>`).join('');
- const recommendation=topics[0];
+ const recommendation=topics[0],pending=localGames().filter(g=>missingAnalysisPositions(g).length).length;
  $('#personal-coach-body').innerHTML=`<p>Партии с доступным разбором: ${p.gameCount}. Проверено ваших ходов: ${p.reviewed}, из них уточнено: ${p.verified}.</p>
+  ${pending?`<p>Партий с пропущенными оценками: ${pending}.</p>`:''}
+  ${historyRun?`<p id="history-analysis-progress" role="status">${esc(historyRun.text)}</p><button id="stop-history-analysis" class="secondary" ${cancelled?'disabled':''}>Остановить</button>`:pending?`<button id="start-history-analysis" class="secondary" ${busy?'disabled':''}>Досчитать партии</button>`:''}
   ${p.unavailable?`<p class="subtle">Партий без достаточного разбора: ${p.unavailable}.</p>`:''}
   ${p.duplicates?`<p class="subtle">Повторные копии одной партии объединены: ${p.duplicates}.</p>`:''}
   ${recommendation?`<p><b>На следующую игру</b> · ${esc(recommendation.tip)}</p><p><b>Повторилось в разных партиях</b></p><ol>${topicCards}</ol>`:'<p>Пока недостаточно подтверждённых повторений в разных партиях.</p>'}
@@ -50,7 +53,47 @@ function renderPersonalCoach(){
   selectGame(sourceGame,index);
   $('#move-detail')?.scrollIntoView({block:'nearest'});
  });
+ if($('#start-history-analysis'))$('#start-history-analysis').onclick=runHistoryAnalysis;
+ if($('#stop-history-analysis'))$('#stop-history-analysis').onclick=()=>{
+  cancelled=true;
+  $('#stop-history-analysis').disabled=true;
+  historyRun.text='Останавливаем расчёт после текущей позиции…';
+  $('#history-analysis-progress').textContent=historyRun.text;
+ };
  if($('#start-personal-training'))$('#start-personal-training').onclick=beginPersonalTraining;
+}
+async function runHistoryAnalysis(){
+ if(busy||training)return;
+ const queue=localGames().map(source=>({source,missing:missingAnalysisPositions(source)})).filter(item=>item.missing.length);
+ if(!queue.length)return;
+ busy=true;cancelled=false;historyRun={text:'Запускаем Stockfish…'};
+ render();
+ let completed=0,wake;
+ try{
+  try{wake=await navigator.wakeLock?.request('screen')}catch{}
+  checkCancel();
+  const e=await getEngine();
+  for(const {source,missing} of queue){
+   checkCancel();
+   const result=await completeGameAnalysis(source,missing,(...args)=>e.analyze(...args),checkCancel,message=>{
+    historyRun.text='Партия '+(completed+1)+' из '+queue.length+' · '+message+'. Держите приложение открытым.';
+    const status=$('#history-analysis-progress');
+    if(status)status.textContent=historyRun.text;
+   });
+   checkCancel();
+   saveCompletedAnalysis(localStorage,localGames(),visibleSavedGame,source,result);
+   Object.assign(source,result);
+   moveReviews.delete(source);lessonCache.delete(source);
+   if(game===source)boardView='played';
+   completed++;
+  }
+  toast('Досчитано партий: '+completed+'.');
+ }catch(error){
+  toast((cancelled?'Расчёт остановлен.':error.message)+' Сохранено партий из очереди: '+completed+'.');
+ }finally{
+  historyRun=null;busy=false;cancelled=false;wake?.release();
+  render();
+ }
 }
 function beginPersonalTraining(){if(busy)return;const p=personalCoach(games,lessonData),queue=p.queue.length?p.queue:p.allQueue;if(!queue.length)return;startTrainingSession(queue,true)}
 function startTrainingSession(queue,global=false){training={queue,global,savedGame:game,cursor:0,selected:null,attempt:null,promotion:null,revealed:false,done:false,checking:false,feedback:'',hintUsed:false,counter:null,showCounter:false,savedIndex:actualIndex,savedView:boardView};render();}
