@@ -217,7 +217,32 @@ const fs=require('node:fs/promises');
  const exported=JSON.parse(await fs.readFile(await backupDownload.path(),'utf8'));
  assert.equal(exported.format,'chess-atelier-learning');assert.equal(exported.version,1);assert.deepEqual(exported.games,JSON.parse(beforeBackup));
  assert.equal(await pp.evaluate(()=>localStorage.getItem('atelier-games-v1')),beforeBackup);
- console.log('PASS: full learning backup downloads without altering stored games'); }
+ console.log('PASS: full learning backup downloads without altering stored games');
+ const restoreStored=()=>pp.evaluate(()=>localStorage.getItem('atelier-games-v1'));
+ await pp.setViewportSize({width:320,height:667});
+ const openRestore=async()=>{await pp.locator('#game-library').evaluate(e=>e.open=true);await pp.locator('#backup-restore-open').click();};
+ const chooseBackup=content=>pp.locator('#backup-restore-file').setInputFiles({name:'synthetic-backup.json',mimeType:'application/json',buffer:Buffer.from(content)});
+ const restoreMessage=pp.locator('#backup-restore-status'),applyBackup=pp.locator('#backup-restore-confirm');
+ const imported={...exported.games[0],id:'local-restore-fixture',title:'Synthetic restored',training:{0:{solved:true,nextReviewAt:123}}};
+ const transfer=JSON.stringify({...exported,games:[exported.games[0],imported]});
+ await openRestore();await chooseBackup('{bad');await pp.waitForFunction(()=>document.querySelector('#backup-restore-status').textContent.includes('повреждённый JSON'));
+ assert.equal(await applyBackup.isDisabled(),true);assert.equal(await restoreStored(),beforeBackup);
+ await chooseBackup(transfer);await pp.waitForFunction(()=>!document.querySelector('#backup-restore-confirm').disabled);
+ assert.match(await restoreMessage.innerText(),/Добавится: 1.*Совпавшие ID: 1/);assert.equal(await restoreStored(),beforeBackup);
+ assert.equal(await pp.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await pp.locator('#backup-restore-dialog .close').click();assert.equal(await restoreStored(),beforeBackup);
+ await openRestore();await chooseBackup(transfer);await pp.waitForFunction(()=>!document.querySelector('#backup-restore-confirm').disabled);
+ await pp.evaluate(()=>{window.savedSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw new DOMException('Full','QuotaExceededError')}});
+ await applyBackup.click();assert.match(await restoreMessage.innerText(),/Не удалось сохранить/);assert.equal(await restoreStored(),beforeBackup);
+ await pp.evaluate(()=>{Storage.prototype.setItem=window.savedSetItem;delete window.savedSetItem});
+ await chooseBackup(transfer);await pp.waitForFunction(()=>!document.querySelector('#backup-restore-confirm').disabled);await applyBackup.click();
+ assert.deepEqual(JSON.parse(await restoreStored()),[exported.games[0],imported]);
+ await pp.reload();await openRestore();await chooseBackup(transfer);
+ await pp.waitForFunction(()=>document.querySelector('#backup-restore-status').textContent.includes('Добавится: 0'));
+ assert.equal(await applyBackup.isDisabled(),true);assert.deepEqual(JSON.parse(await restoreStored()),[exported.games[0],imported]);
+ await pp.locator('#backup-restore-dialog .close').click();
+ console.log('PASS: backup preview, cancel, quota error, restore and deduplication');
+ }
  console.log('PASS: pasted PGN validation, metadata, black-side analysis and persistence');await pc.close();
  // Production module worker: an empty board is not a playable game.
  const c3=await browser.newContext({serviceWorkers:'block'}),p3=await c3.newPage();

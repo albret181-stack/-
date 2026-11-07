@@ -1,4 +1,5 @@
 import {learningBackup} from './backup.js';
+import {prepareBackupRestore} from './backup-restore.mjs';
 import {personalCoach} from './personal-coach.js';
 import {practiceQueue,matchingPractice,practiceDueAt,recordPractice,practiceReply} from './practice-memory.js';
 import {gameLesson,practiceOutcome} from './learning.js';
@@ -10,7 +11,7 @@ import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {OrientedSequence} from './oriented-sequence.js';
 import {RecognitionResume} from './recognition-resume.js';
 import {detectBoard} from './board-vision.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.4',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.5',BUILD_ID='source';
 let games=[],game,selected=0,boardView='played',baseFen='',actualIndex=0,busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null,resumeCancel=null;
 const moveReviews=new WeakMap();
 function moveInfo(i,source=game){let cache=moveReviews.get(source);if(!cache){cache=new Map();moveReviews.set(source,cache)}if(!cache.has(i))cache.set(i,reviewMove(source,i));return cache.get(i)}
@@ -121,7 +122,48 @@ $('#prev').onclick=()=>advance(-1);$('#next').onclick=()=>advance(1);$('#first')
 $$('dialog .close').forEach(b=>b.onclick=()=>{if(b.closest('dialog').id==='import-dialog'&&busy){cancelled=true;recognitionDecision?.(false);return}b.closest('dialog').close()});
 $('#import-dialog').addEventListener('cancel',e=>{if(busy){e.preventDefault();cancelled=true;recognitionDecision?.(false)}});
 $$('.upload-trigger').forEach(b=>b.onclick=()=>{if(!busy)$('#import-dialog').showModal()});
-$('#backup-export').onclick=()=>{if(busy){toast('Дождитесь завершения расчёта, чтобы сохранить полную копию.');return}try{download(learningBackup(games,{appVersion:VERSION}),'chess-atelier-learning-'+new Date().toISOString().slice(0,10)+'.json','application/json');toast('Копия скачана: партии, оценки и прогресс. Восстановление появится в следующем обновлении.')}catch(e){toast(e.message)}};
+$('#backup-export').onclick=()=>{if(busy){toast('Дождитесь завершения расчёта, чтобы сохранить полную копию.');return}try{download(learningBackup(games,{appVersion:VERSION}),'chess-atelier-learning-'+new Date().toISOString().slice(0,10)+'.json','application/json');toast('Копия скачана: партии, оценки и прогресс.')}catch(e){toast(e.message)}};
+const restoreDialog=$('#backup-restore-dialog'),restoreInput=$('#backup-restore-file'),restoreStatus=$('#backup-restore-status'),restoreConfirm=$('#backup-restore-confirm');
+let restorePlan=null,restoreRequest=0,restoreLive='';
+const localGames=()=>games.filter(g=>!g.id.startsWith('sample-'));
+const visibleSavedGame=g=>g?.moves?.length&&g.positions?.length&&Array.isArray(g.evals);
+function resetRestore(){
+ restoreRequest++;restorePlan=null;restoreInput.value='';restoreStatus.textContent='';restoreConfirm.disabled=true;
+}
+$('#backup-restore-open').onclick=()=>{
+ if(busy||training){toast('Завершите расчёт или тренировку, затем откройте копию.');return}
+ resetRestore();$('#game-library').open=false;restoreDialog.showModal();
+};
+restoreDialog.addEventListener('close',resetRestore);
+restoreInput.onchange=async()=>{
+ const file=restoreInput.files[0],request=++restoreRequest;
+ restorePlan=null;restoreConfirm.disabled=true;restoreStatus.textContent='';
+ if(!file)return;
+ restoreStatus.textContent='Проверяем файл…';
+ try{
+  if(file.size>12*1024*1024)throw new Error('Копия больше 12 МБ. Выберите файл меньшего размера.');
+  const text=await file.text();
+  if(request!==restoreRequest||!restoreDialog.open)return;
+  const live=JSON.stringify(localGames()),stored=JSON.parse(localStorage.getItem('atelier-games-v1')??'[]');
+  if(!Array.isArray(stored)||JSON.stringify(stored.filter(visibleSavedGame))!==live)throw new Error('Сохранённые партии отличаются от открытых. Восстановление отменено.');
+  const plan=prepareBackupRestore(text,localStorage),s=plan.summary;
+  restorePlan=plan;restoreLive=live;
+  restoreStatus.textContent='Партий в копии: '+s.gameCount+'. Добавится: '+s.addedCount+'. Совпавшие ID: '+s.skippedCount+'. Уже сохранённые партии и прогресс останутся на месте.';
+  restoreConfirm.disabled=s.addedCount===0;
+ }catch(error){if(request===restoreRequest)restoreStatus.textContent=error instanceof SyntaxError?'Сохранённые партии не удалось прочитать.':error.message}
+};
+restoreConfirm.onclick=()=>{
+ if(!restorePlan||busy||training)return;
+ try{
+  if(JSON.stringify(localGames())!==restoreLive)throw new Error('Список партий изменился. Выберите файл ещё раз.');
+  const ids=new Set(games.map(g=>g.id));
+  const {games:merged,summary}=restorePlan.commit();
+  const added=merged.filter(g=>!ids.has(g.id)&&visibleSavedGame(g));
+  games.push(...added);restoreDialog.close();
+  if(game)renderGames();else if(added.length)selectGame(added[0]);
+  toast('Добавлено партий: '+summary.addedCount+'.');
+ }catch(error){restorePlan=null;restoreInput.value='';restoreConfirm.disabled=true;restoreStatus.textContent=error.message}
+};
 $('#export').onclick=()=>{const b=new Chess();game.moves.forEach(m=>b.move(m.uci));download(b.pgn(),'party.pgn','application/x-chess-pgn')};
 function download(data,name,type){const u=URL.createObjectURL(new Blob([data],{type})),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
 $('#about').onclick=()=>info('Разбор ошибок',`<p>Приложение разбирает ходы стороны снизу записи. Цвет и ориентация видео определяются автоматически. Для PGN выберите свою сторону при добавлении партии.</p><p>У каждой ошибки — сыгранный ход, причина ухудшения и один более сильный ход. Длинные варианты не строятся. Если конкретная причина не установлена, приложение сообщает об этом.</p><p>Видео и партии обрабатываются на устройстве. Для установки: Safari → «Поделиться» → «На экран Домой». Сохраняйте важные партии в PGN.</p>`);
@@ -280,5 +322,5 @@ $('#import-start').onclick=async()=>{
  }catch(e){$('#import-error').textContent=e.message}finally{busy=false;wake?.release();$('#file-input').disabled=false;for(const id of ['mode-file','mode-text','pgn-text','pgn-side'])$('#'+id).disabled=false;updateImport();$('#progress-box').hidden=true}
 };
 function renderEmpty(){training=null;$('#lesson-summary').hidden=true;$('#game-title').textContent='Добавьте партию, чтобы начать';$('#game-label').textContent='РАЗБОР ПАРТИИ';$('#opening').textContent='Загрузите запись экрана или PGN';$('#fragment').textContent='Партии хранятся на этом устройстве';$('#board').innerHTML='';$('#move-visual-notes').hidden=true;$('#move-visual-notes').innerHTML='';$('#tab-content').innerHTML='<article class="insight-card"><h3>Начните с вашей партии</h3><p>Добавьте запись экрана или PGN кнопкой «＋ Партия».</p></article>';$('#games').innerHTML='';$('#count').textContent='0';$('#eval-label').textContent='—';$('#position-label').textContent='Здесь появится доска с вашей партией';$('#first').disabled=$('#prev').disabled=$('#next').disabled=$('#last').disabled=true}
-async function boot(){try{const samples=await fetch('./samples.json').then(r=>r.json());let saved=[];try{saved=JSON.parse(localStorage.getItem('atelier-games-v1')||'[]').filter(g=>g.moves?.length&&g.positions?.length&&g.evals?.length)}catch{}games=[...saved,...samples];if(games.length)selectGame(games[0]);else renderEmpty()}catch(e){$('#game-title').textContent='Не удалось загрузить партии';$('#tab-content').innerHTML='<p>Проверьте интернет и обновите страницу.</p>';console.error(e)}}
-boot();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).catch(()=>{});
+async function boot(){try{const samples=await fetch('./samples.json').then(r=>r.json());let saved=[];try{saved=JSON.parse(localStorage.getItem('atelier-games-v1')||'[]').filter(visibleSavedGame)}catch{}games=[...saved,...samples];if(games.length)selectGame(games[0]);else renderEmpty()}catch(e){$('#game-title').textContent='Не удалось загрузить партии';$('#tab-content').innerHTML='<p>Проверьте интернет и обновите страницу.</p>';console.error(e)}}
+boot().then(()=>{$('#backup-restore-open').disabled=false});if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).catch(()=>{});
