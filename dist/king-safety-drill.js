@@ -3,6 +3,7 @@ import {practiceReply} from './practice-memory.js';
 
 // Original teaching position: Black threatens ...Re1# if White ignores the back rank.
 export const kingSafetyDrill={
+ id:'back-rank-defense-1',
  index:0,
  fen:'4r1k1/7p/8/8/8/8/R4PPP/6K1 w - - 0 1',
  title:'Безопасность короля',
