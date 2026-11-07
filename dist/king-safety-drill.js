@@ -18,3 +18,17 @@ export function kingSafetyReply(fen,uci){
  const mate=board.moves({verbose:true}).find(move=>move.san.endsWith('#'));
  return mate?practiceReply(fen,uci,mate.from+mate.to+(mate.promotion||'')):null;
 }
+
+// Offer the exercise only for a back-rank mate the player could have prevented.
+export function matchesKingSafetyDrill(fen,playedUci,bestUci,replyUci){
+ if(!bestUci||!replyUci)return false;
+ if(fen.split(' ').slice(0,4).join(' ')===kingSafetyDrill.fen.split(' ').slice(0,4).join(' '))return false;
+ try{
+  const board=new Chess(fen),played=board.move(playedUci),reply=board.move(replyUci);
+  const king=board.board().flat().find(p=>p?.type==='k'&&p.color===played.color);
+  const backRank=played.color==='w'?'1':'8';
+  return board.isCheckmate()&&king.square[1]===backRank&&reply.to[1]===backRank&&
+   ['r','q'].includes(reply.piece)&&board.attackers(king.square,reply.color).includes(reply.to)&&
+   !kingSafetyReply(fen,bestUci);
+ }catch{return false}
+}
