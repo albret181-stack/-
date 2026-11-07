@@ -1,3 +1,4 @@
+import {readDrillResult,saveDrillResult} from './drill-results.js';
 import {kingSafetyDrill,kingSafetyReply,matchesKingSafetyDrill} from './king-safety-drill.js';
 import {completeGameAnalysis,missingAnalysisPositions,saveCompletedAnalysis} from './history-analysis.js';
 import {learningBackup} from './backup.js';
@@ -13,7 +14,7 @@ import {editRecognition,replaceRecognizedMove} from './recognition-edit.js';
 import {OrientedSequence} from './oriented-sequence.js';
 import {RecognitionResume} from './recognition-resume.js';
 import {detectBoard} from './board-vision.js';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.10',BUILD_ID='source';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],VERSION='0.11.11',BUILD_ID='source';
 let games=[],game,selected=0,boardView='played',baseFen='',actualIndex=0,busy=false,cancelled=false,selectedFile=null,engine=null,recognitionDecision=null,resumeCancel=null;
 const moveReviews=new WeakMap();
 function moveInfo(i,source=game){let cache=moveReviews.get(source);if(!cache){cache=new Map();moveReviews.set(source,cache)}if(!cache.has(i))cache.set(i,reviewMove(source,i));return cache.get(i)}
@@ -34,10 +35,22 @@ function renderLessonSummary(){
  $('#lesson-summary-body').insertAdjacentHTML('beforeend','<details id="personal-coach"><summary>Разбор всех партий</summary><div id="personal-coach-body"></div></details>');$('#personal-coach').ontoggle=()=>{if($('#personal-coach').open&&!$('#personal-coach-body').hasChildNodes())renderPersonalCoach()};if(coachWasOpen){$('#personal-coach').open=true;renderPersonalCoach()}
  $$('[data-lesson-move]').forEach(b=>b.onclick=()=>choosePosition(+b.dataset.lessonMove+1));if($('#start-training'))$('#start-training').onclick=beginTraining;
 }
+const drillStatus={independent:'самостоятельно',assisted:'с помощью',revealed:'открыт ответ'};
+function kingSafetyResultText(){
+ try{
+  const result=readDrillResult(localStorage,kingSafetyDrill.id);
+  return result?'Первый результат: '+drillStatus[result.first]+'. Последний: '+drillStatus[result.latest]+'.':'';
+ }catch{return 'Результат задачи недоступен.'}
+}
+function recordDrill(task,status){
+ try{saveDrillResult(localStorage,task.id,status)}
+ catch{toast('Не удалось сохранить результат учебной задачи.')}
+}
 function renderPersonalCoach(){
  const p=personalCoach(games,lessonData),topics=p.repeated.slice(0,3),examples=topics.flatMap(t=>t.examples);
  const topicCards=topics.map(t=>`<li><b>${esc(t.title)}</b> · ${t.games} из ${p.gameCount} разобранных партий · эпизодов: ${t.count}.
   ${t.examples.map(e=>`<p><button type="button" class="text-btn" data-coach-example="${examples.indexOf(e)}" ${busy?'disabled':''}>${esc(e.sourceGame.title)} · ${esc(moveLabel(e.index,e.sourceGame))}</button><br>${esc(e.reason)}</p>`).join('')}</li>`).join('');
+ const drillResult=kingSafetyResultText();
  const recommendation=topics[0],pending=localGames().filter(g=>missingAnalysisPositions(g).length).length;
  $('#personal-coach-body').innerHTML=`<p>Партии с доступным разбором: ${p.gameCount}. Проверено ваших ходов: ${p.reviewed}, из них уточнено: ${p.verified}.</p>
   ${pending?`<p>Партий с пропущенными оценками: ${pending}.</p>`:''}
@@ -47,6 +60,7 @@ function renderPersonalCoach(){
   ${recommendation?`<p><b>На следующую игру</b> · ${esc(recommendation.tip)}</p><p><b>Повторилось в разных партиях</b></p><ol>${topicCards}</ol>`:'<p>Пока недостаточно подтверждённых повторений в разных партиях.</p>'}
   ${p.topicQueue.length?`<button id="start-topic-training" class="primary" ${busy?'disabled':''}>Тренировать тему «${esc(recommendation.title)}» · ${p.topicQueue.length}</button>`:''}
   <p><button id="start-king-safety" class="secondary" ${busy?'disabled':''}>Новая позиция · безопасность короля</button></p>
+  ${drillResult?`<p id="king-safety-result" class="subtle">${esc(drillResult)}</p>`:''}
   ${p.unclassified?`<p class="subtle">Ошибки без установленной темы: ${p.unclassified}.</p>`:''}
   <p>Уникальных учебных позиций: ${p.exerciseCount}. К повторению сейчас: ${p.readyCount}. Сохранено решений: ${p.solvedCount}.</p>
   ${(p.queue.length||p.allQueue.length)?`<button id="start-personal-training" class="secondary" ${busy?'disabled':''}>${p.queue.length?'Повторить из всех партий · '+p.queue.length+' позиции':'Повторить знакомые позиции сейчас'}</button>`:''}`;
@@ -114,7 +128,7 @@ function startTrainingSession(queue,global=false,topic=null,returnFocus=null){tr
 function beginTraining(){if(busy)return;const tasks=lessonData().exercises||[],queue=practiceQueue(game,tasks).length?practiceQueue(game,tasks):practiceQueue(game,tasks,Date.now(),true);if(queue.length)startTrainingSession(queue);}
 
 function endTraining(){if(!training)return;const saved=training;training=null;game=saved.savedGame||game;renderGames();actualIndex=saved.savedIndex;selected=actualIndex-1;boardView=saved.savedView;render();if(saved.returnFocus)document.getElementById(saved.returnFocus)?.focus();else if(saved.topic)$('#start-topic-training')?.focus();}
-function practiceRecord(solved=false,revealed=false){const task=training.queue[training.cursor];if(task.goal)return;const identity={fen:game.positions[task.index],bestUci:task.best.uci};game.training={...game.training,[task.index]:recordPractice((Number(task.progress?.updatedAt)||0)>(Number(game.training?.[task.index]?.updatedAt)||0)?task.progress:game.training?.[task.index],identity,revealed?'revealed':solved?'solved':'failed',{hintUsed:training.hintUsed})};lessonCache.delete(game);persist();}
+function practiceRecord(solved=false,revealed=false){const task=training.queue[training.cursor];if(task.goal){if(revealed)recordDrill(task,'revealed');return}const identity={fen:game.positions[task.index],bestUci:task.best.uci};game.training={...game.training,[task.index]:recordPractice((Number(task.progress?.updatedAt)||0)>(Number(game.training?.[task.index]?.updatedAt)||0)?task.progress:game.training?.[task.index],identity,revealed?'revealed':solved?'solved':'failed',{hintUsed:training.hintUsed})};lessonCache.delete(game);persist();}
 
 function renderTraining(){
  const task=training.queue[training.cursor],drill=training.queue[0].goal,source=task?.sourceGame;if(source)game=source;const title=drill?'Учебная позиция':game.title;$('#game-title').textContent=title;$('#game-title').title=title;$('#opening').textContent='Тренировка · '+(!drill&&game.color==='black'?'чёрные':'белые')+' снизу';$('.recognition-note').hidden=true;renderGames();
@@ -134,7 +148,9 @@ function practiceSquare(square){if(!training||training.checking||training.done||
 async function submitPractice(move){if(!training||training.checking||busy||!move)return;const session=training,task=session.queue[session.cursor],uci=move.from+move.to+(move.promotion||'');session.selected=null;session.promotion=null;session.attempt=uci;if(task.goal){
  const reply=kingSafetyReply(task.fen,uci);
  session.counter=reply;session.showCounter=!!reply;session.done=!reply;
- session.feedback=reply?reply.text:session.hintUsed?'Верно с подсказкой. После этого хода у чёрных нет мата в один ход.':'Верно. После этого хода у чёрных нет мата в один ход.';
+ if(reply)session.sawMate=true;
+ else recordDrill(task,session.hintUsed||session.sawMate?'assisted':'independent');
+ session.feedback=reply?reply.text:session.hintUsed?'Верно с подсказкой. После этого хода у чёрных нет мата в один ход.':session.sawMate?'Верно после разбора. После этого хода у чёрных нет мата в один ход.':'Верно. После этого хода у чёрных нет мата в один ход.';
  renderTraining();return;
  }if(uci===task.best.uci){session.done=true;session.feedback='Верно: вы нашли вариант, предложенный в разборе. Посмотрите, какую задачу он решает.';practiceRecord(true);renderTraining();return}session.checking=true;busy=true;cancelled=false;renderTraining();try{const e=await getEngine(),pair=await compareMoves((...args)=>e.analyze(...args),game.positions[task.index],uci,task.best.uci,checkCancel);if(training!==session)return;const outcome=practiceOutcome(pair,game.color);session.feedback=outcome.text;session.done=outcome.accepted;practiceRecord(outcome.accepted);if(!outcome.accepted){try{const afterAttempt=new Chess(game.positions[task.index]);afterAttempt.move(uci);const response=await e.analyze(afterAttempt.fen(),1500);checkCancel();const reply=practiceReply(game.positions[task.index],uci,response[0]?.line?.[0]?.uci);if(training===session&&reply){session.counter=reply;session.showCounter=true;session.feedback=outcome.text+' '+reply.text}}catch{session.feedback+=' Не удалось подтвердить конкретный ответ соперника; его стрелку не показываем.'}session.attempt=null;}}catch(e){if(training===session){session.feedback=e.message+' Попытка не оценена; её можно повторить.';session.attempt=null}}finally{busy=false;session.checking=false;if(training===session)renderTraining()}}
 
